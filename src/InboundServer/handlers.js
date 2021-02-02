@@ -8,11 +8,13 @@
  *       James Bush - james.bush@modusbox.com                             *
  *  CONTRIBUTORS:                                                         *
  *       Steven Oderayi - steven.oderayi@modusbox.com                     *
+ *       Paweł Marzec - pawel.marzec@modusbox.com                         *
  **************************************************************************/
 
 'use strict';
 
 const Model = require('@internal/model').InboundTransfersModel;
+const PartiesModel = require('@internal/model').PartiesModel;
 
 /**
  * Handles a GET /authorizations/{id} request
@@ -354,7 +356,7 @@ const putPartiesByTypeAndId = async (ctx) => {
     const { Type, ID, SubId } = ctx.state.path.params;
 
     // publish an event onto the cache for subscribers to action
-    const cacheId = `${Type}_${ID}` + (SubId ? `_${SubId}` : '');
+    const cacheId = PartiesModel.channelName(idType, idValue, idSubValue);
     const value = {
         headers: ctx.request.headers,
         body: ctx.request.body
@@ -365,6 +367,7 @@ const putPartiesByTypeAndId = async (ctx) => {
         await ctx.state.cache.publish(cacheId, value);
     }
     ctx.response.status = 200;
+    ctx.response.body = '';
 };
 
 
