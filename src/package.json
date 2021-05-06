@@ -1,0 +1,63 @@
+{
+  "name": "@modusintegration/mojaloop-connector",
+  "version": "12.4.1",
+  "description": "An adapter for connecting to Mojaloop API enabled switches.",
+  "main": "index.js",
+  "scripts": {
+    "audit:resolve": "SHELL=sh resolve-audit --production",
+    "audit:check": "SHELL=sh check-audit --production",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "jest --ci --reporters=default --reporters=jest-junit --env=node test/unit/",
+    "test:int": "jest --ci --reporters=default --reporters=jest-junit --env=node test/integration --forceExit"
+  },
+  "author": "Matt Kingston, James Bush, ModusBox Inc.",
+  "contributors": [
+    "Kamuela Franco <kamuela.franco@modusbox.com>",
+    "Steven Oderayi <steven.oderayi@modusbox.com>",
+    "Valentin Genev <valentin.genev@modusbox.com>"
+  ],
+  "license": "Apache-2.0",
+  "licenses": [
+    {
+      "type": "Apache-2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0"
+    }
+  ],
+  "dependencies": {
+    "@internal/cache": "file:lib/cache",
+    "@internal/check": "file:lib/check",
+    "@internal/metrics": "file:lib/metrics",
+    "@internal/model": "file:lib/model",
+    "@internal/randomphrase": "file:lib/randomphrase",
+    "@internal/requests": "file:lib/model/lib/requests",
+    "@internal/router": "file:lib/router",
+    "@internal/shared": "file:lib/model/lib/shared",
+    "@internal/validate": "file:lib/validate",
+    "@mojaloop/sdk-standard-components": "13.3.3",
+    "ajv": "^6.12.2",
+    "co-body": "^6.0.0",
+    "dotenv": "^8.2.0",
+    "env-var": "^6.1.1",
+    "fast-json-patch": "^3.0.0-1",
+    "js-yaml": "^3.13.1",
+    "koa": "^2.11.0",
+    "koa-body": "^4.1.1",
+    "koa2-oauth-server": "^1.0.0",
+    "uuidv4": "^6.0.8",
+    "ws": "^7.3.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^25.2.1",
+    "eslint": "^7.0.0",
+    "eslint-config-airbnb-base": "^14.1.0",
+    "eslint-plugin-import": "^2.20.2",
+    "jest": "^26.0.1",
+    "jest-junit": "^10.0.0",
+    "nock": "^12.0.3",
+    "npm-audit-resolver": "2.2.0",
+    "openapi-response-validator": "^4.0.0",
+    "redis-mock": "^0.49.0",
+    "supertest": "^4.0.2"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "accounts": [
+    {
+      "currency": "USD",
+      "idType": "MSISDN",
+      "idValue": "123456789"
+    }
+  ],
+  "currentState": "COMPLETED",
+  "modelId": "00000000-0000-1000-8000-000000000001",
+  "response": [
+    {
+      "error": {
+        "message": "Provided currency not supported",
+        "statusCode": "3000"
+      },
+      "idType": "MSISDN",
+      "idValue": "123456789"
+    }
+  ]
+}
