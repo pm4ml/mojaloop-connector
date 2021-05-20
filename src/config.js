@@ -59,7 +59,8 @@ const env = from(process.env, {
 module.exports = {
     __parseResourceVersion: parseResourceVersions,
     control: {
-        port: env.get('CONTROL_LISTEN_PORT').default('4003').asPortNumber(),
+        mgmtAPIWsUrl: env.get('MGMT_API_WS_URL').required().asString(),
+        mgmtAPIWsPort: env.get('MGMT_API_WS_PORT').default('4005').asPortNumber()
     },
     inbound: {
         port: env.get('INBOUND_LISTEN_PORT').default('4000').asPortNumber(),
@@ -170,5 +171,6 @@ module.exports = {
     resourceVersions: env.get('RESOURCE_VERSIONS').default('').asResourceVersions(),
     metrics: {
         port: env.get('METRICS_SERVER_LISTEN_PORT').default('4004').asPortNumber()
-    }
+    },
+    pm4mlEnabled: env.get('PM4ML_ENABLED').default('false').asBool()
 };

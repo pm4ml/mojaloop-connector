@@ -1,5 +1,5 @@
 
-const { Client } = require('./ControlServer');
+const { Client } = require('./ControlAgent');
 const { Logger } = require('@mojaloop/sdk-standard-components');
 
 (async function main() {

@@ -20,7 +20,7 @@ node src/index.js
 
 Restart the server:
 ```javascript
-const { Client } = require('./ControlServer');
+const { Client } = require('./ControlAgent');
 const { Logger } = require('@mojaloop/sdk-standard-components');
 
 (async function main() {
