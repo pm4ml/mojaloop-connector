@@ -1,6 +1,6 @@
 {
   "name": "@modusintegration/mojaloop-connector",
-  "version": "13.0.0",
+  "version": "13.0.1",
   "description": "An adapter for connecting to Mojaloop API enabled switches.",
   "main": "index.js",
   "scripts": {
