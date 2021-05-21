@@ -1,8 +1,8 @@
-[![Git Commit](https://img.shields.io/github/last-commit/mojaloop/sdk-scheme-adapter.svg?style=flat)](https://github.com/mojaloop/sdk-scheme-adapter/commits/master)
-[![Git Releases](https://img.shields.io/github/release/mojaloop/sdk-scheme-adapter.svg?style=flat)](https://github.com/mojaloop/sdk-scheme-adapter/releases)
-[![Npm Version](https://img.shields.io/npm/v/@mojaloop/sdk-scheme-adapter.svg?style=flat)](https://www.npmjs.com/package/@mojaloop/sdk-scheme-adapter)
-[![NPM Vulnerabilities](https://img.shields.io/snyk/vulnerabilities/npm/@mojaloop/sdk-scheme-adapter.svg?style=flat)](https://www.npmjs.com/package/@mojaloop/sdk-scheme-adapter)
-[![CircleCI](https://circleci.com/gh/mojaloop/sdk-scheme-adapter.svg?style=svg)](https://circleci.com/gh/mojaloop/sdk-scheme-adapter)
+[![Git Commit](https://img.shields.io/github/last-commit/pm4ml/sdk-scheme-adapter.svg?style=flat)](https://github.com/pm4ml/sdk-scheme-adapter/commits/master)
+[![Git Releases](https://img.shields.io/github/release/pm4ml/sdk-scheme-adapter.svg?style=flat)](https://github.com/pm4ml/sdk-scheme-adapter/releases)
+[![Npm Version](https://img.shields.io/npm/v/@pm4ml/sdk-scheme-adapter.svg?style=flat)](https://www.npmjs.com/package/@pm4ml/sdk-scheme-adapter)
+[![NPM Vulnerabilities](https://img.shields.io/snyk/vulnerabilities/npm/@pm4ml/sdk-scheme-adapter.svg?style=flat)](https://www.npmjs.com/package/@pm4ml/sdk-scheme-adapter)
+[![CircleCI](https://circleci.com/gh/pm4ml/sdk-scheme-adapter.svg?style=svg)](https://circleci.com/gh/pm4ml/sdk-scheme-adapter)
 
 # Mojaloop Connector
 

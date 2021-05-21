@@ -15,6 +15,6 @@
     }
   ],
   "dependencies": {
-    "redis": "^3.1.2"
+    "redis": "^3.1.1"
   }
 }
