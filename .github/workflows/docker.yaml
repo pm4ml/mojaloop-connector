@@ -7,7 +7,7 @@ on:
 
 jobs:
   vulnerability_check_source:
-    runs-ON: ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: Vulnerability audit

@@ -1,5 +1,5 @@
 # CircleCI v2.1 Config
-version: 2.1
+:version 2.1
 
 ##
 # orbs
@@ -290,30 +290,6 @@ jobs:
       - store_artifacts:
           path: anchore-reports
 
-  publish:
-    executor: default-machine
-    steps:
-      - checkout
-      - attach_workspace:
-          at: /tmp
-      - run:
-          name: Load the pre-built docker image from workspace
-          command: docker load -i /tmp/docker-image.tar
-      - run:
-          name: Login to Docker Hub
-          command: docker login -u $DOCKER_USER -p $DOCKER_PASS
-      - run:
-          name: Re-tag pre built image
-          command: |
-            docker tag $DOCKER_ORG/$CIRCLE_PROJECT_REPONAME:$CIRCLE_TAG $DOCKER_ORG/$CIRCLE_PROJECT_REPONAME:$RELEASE_TAG
-      - run:
-          name: Publish Docker image $CIRCLE_TAG & Latest tag to Docker Hub
-          command: |
-            echo "Publishing $DOCKER_ORG/$CIRCLE_PROJECT_REPONAME:$CIRCLE_TAG"
-            docker push $DOCKER_ORG/$CIRCLE_PROJECT_REPONAME:$CIRCLE_TAG
-            echo "Publishing $DOCKER_ORG/$CIRCLE_PROJECT_REPONAME:$RELEASE_TAG"
-            docker push $DOCKER_ORG/$CIRCLE_PROJECT_REPONAME:$RELEASE_TAG
-
 
 ##
 # Workflows
@@ -410,33 +386,3 @@ workflows:
                 - /feature*/
                 - /bugfix*/
                 - /hotfix*/
-  deploy:
-    jobs:
-      - docker/publish:
-          context: pm4ml-ci
-          filters:
-            tags:
-              only: /v[0-9]+(\.[0-9]+)*(\-snapshot)?(\-hotfix(\.[0-9]+))?/
-            branches:
-              ignore:
-                - /.*/
-          before_build:
-            - run:
-                name: Set image tag
-                command: |
-                  if [[ -v CIRCLE_TAG ]]; then
-                    echo 'export IMAGE_TAG=$(echo $CIRCLE_TAG | tr -d v)' >> $BASH_ENV
-                  else
-                    echo 'export IMAGE_TAG=$CIRCLE_BRANCH' >> $BASH_ENV
-                  fi
-          lint-dockerfile: false
-          image: $CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME
-          tag: $IMAGE_TAG
-          registry: $DOCKER_REGISTRY
-          docker-username: DOCKER_USER
-          docker-password: DOCKER_PASSWORD
-#          after_build:
-#            - slack/status:
-#              success_message: Publish/deploy succeeded in branch $CIRCLE_BRANCH
-#              failure_message: Public/deploy failed in branch $CIRCLE_BRANCH
-#              webhook: $SLACK_WEBHOOK
