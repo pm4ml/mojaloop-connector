@@ -10,7 +10,6 @@ orbs:
   anchore: anchore/anchore-engine@1.6.0
   deploy-kube: mojaloop/deployment@0.1.6
   docker: circleci/docker@1.5.0
-  slack: circleci/slack@3.4.2
 
 ##
 # defaults
@@ -314,10 +313,6 @@ jobs:
             docker push $DOCKER_ORG/$CIRCLE_PROJECT_REPONAME:$CIRCLE_TAG
             echo "Publishing $DOCKER_ORG/$CIRCLE_PROJECT_REPONAME:$RELEASE_TAG"
             docker push $DOCKER_ORG/$CIRCLE_PROJECT_REPONAME:$RELEASE_TAG
-      - slack/status:
-          webhook: "$SLACK_WEBHOOK_ANNOUNCEMENT"
-          success_message: '*"${CIRCLE_PROJECT_REPONAME}"* - Release \`"${CIRCLE_TAG}"\` \nhttps://github.com/mojaloop/"${CIRCLE_PROJECT_REPONAME}"/releases/tag/"${CIRCLE_TAG}"'
-
 
 
 ##
@@ -330,6 +325,7 @@ workflows:
   build_and_test:
     jobs:
       - setup:
+          context: pm4ml-ci
           filters:
             branches:
               ignore:
@@ -337,6 +333,7 @@ workflows:
                 - /bugfix*/
                 - /hotfix*/
       - test-unit:
+          context: pm4ml-ci
           requires:
             - setup
           filters:
@@ -346,6 +343,7 @@ workflows:
                 - /bugfix*/
                 - /hotfix*/
       - lint:
+          context: pm4ml-ci
           requires:
             - setup
           filters:
@@ -355,6 +353,7 @@ workflows:
                 - /bugfix*/
                 - /hotfix*/
       - test-integration:
+          context: pm4ml-ci
           requires:
             - setup
           filters:
@@ -364,6 +363,7 @@ workflows:
                 - /bugfix*/
                 - /hotfix*/
       - vulnerability-check:
+          context: pm4ml-ci
           requires:
             - setup
           filters:
@@ -373,6 +373,7 @@ workflows:
                 - /bugfix*/
                 - /hotfix*/
       - audit-licenses:
+          context: pm4ml-ci
           requires:
             - setup
           filters:
@@ -382,6 +383,7 @@ workflows:
                 - /bugfix*/
                 - /hotfix*/
       - build-local:
+          context: pm4ml-ci
           filters:
             branches:
               ignore:
@@ -389,6 +391,7 @@ workflows:
                 - /bugfix*/
                 - /hotfix*/
       - image-scan:
+          context: pm4ml-ci
           requires:
             - build-local
           filters:
@@ -398,6 +401,7 @@ workflows:
                 - /bugfix*/
                 - /hotfix*/
       - license-scan:
+          context: pm4ml-ci
           requires:
             - build-local
           filters:
@@ -409,6 +413,7 @@ workflows:
   deploy:
     jobs:
       - docker/publish:
+          context: pm4ml-ci
           filters:
             tags:
               only: /v[0-9]+(\.[0-9]+)*(\-snapshot)?(\-hotfix(\.[0-9]+))?/
@@ -430,8 +435,8 @@ workflows:
           registry: $DOCKER_REGISTRY
           docker-username: DOCKER_USER
           docker-password: DOCKER_PASSWORD
-          after_build:
-            - slack/status:
-              success_message: Publish/deploy succeeded in branch $CIRCLE_BRANCH
-              failure_message: Public/deploy failed in branch $CIRCLE_BRANCH
-              webhook: $SLACK_WEBHOOK
+#          after_build:
+#            - slack/status:
+#              success_message: Publish/deploy succeeded in branch $CIRCLE_BRANCH
+#              failure_message: Public/deploy failed in branch $CIRCLE_BRANCH
+#              webhook: $SLACK_WEBHOOK
