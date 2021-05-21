@@ -317,7 +317,7 @@ if(require.main === module) {
                 appConfig: config,
             });
             const updatedConfigFromMgmtAPI = await _GetUpdatedConfigFromMgmtAPI(config, logger, controlClient);
-            console.log(`updatedConfigFromMgmtAPI: ${JSON.stringify(updatedConfigFromMgmtAPI)}`);
+            logger.log(`updatedConfigFromMgmtAPI: ${JSON.stringify(updatedConfigFromMgmtAPI)}`);
             config.peerJWSKeys = updatedConfigFromMgmtAPI && updatedConfigFromMgmtAPI.peerJWSKeys;
             controlClient.terminate();
         }

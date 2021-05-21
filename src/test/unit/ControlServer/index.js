@@ -10,7 +10,6 @@
 'use strict';
 
 const ws = require('ws');
-const assert = require('assert').strict;
 const jsonPatch = require('fast-json-patch');
 const randomPhrase = require('@internal/randomphrase');
 const { getInternalEventEmitter, INTERNAL_EVENTS } = require('./events');
