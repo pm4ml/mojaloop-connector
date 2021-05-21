@@ -1,12 +1,8 @@
 {
   "decisions": {
     "1673|koa2-oauth-server>00unidentified>lodash": {
-      "decision": "fix",
-      "madeAt": 1621586881909
-    },
-    "1662|00unidentified>redis": {
-      "decision": "postpone",
-      "madeAt": 1621586720240
+      "decision": "ignore",
+      "madeAt": 1621589245746
     }
   },
   "rules": {},
