@@ -49,7 +49,10 @@ class OutboundTransfersModel {
             transfersEndpoint: config.transfersEndpoint,
             transactionRequestsEndpoint: config.transactionRequestsEndpoint,
             dfspId: config.dfspId,
-            tls: config.outbound.tls,
+            tls: {
+                enabled: config.outbound.tls.mutualTLS.enabled,
+                creds: config.outbound.tls.creds,
+            },
             jwsSign: config.jwsSign,
             jwsSignPutParties: config.jwsSignPutParties,
             jwsSigningKey: config.jwsSigningKey,
@@ -323,7 +326,7 @@ class OutboundTransfersModel {
             try {
                 latencyTimerDone = this.metrics.partyLookupLatency.startTimer();
                 const res = await this._requests.getParties(this.data.to.idType, this.data.to.idValue,
-                    this.data.to.idSubValue);
+                    this.data.to.idSubValue, this.data.to.fspId);
                 this.data.getPartiesRequest = res.originalRequest;
                 this.metrics.partyLookupRequests.inc();
                 this._logger.push({ peer: res }).log('Party lookup sent to peer');
