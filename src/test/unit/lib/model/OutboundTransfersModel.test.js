@@ -380,8 +380,8 @@ describe('outboundModel', () => {
             ...config,
         });
 
-        let req = JSON.parse(JSON.stringify(transferRequest))
-        const testFspId = "TESTDESTFSPID";
+        let req = JSON.parse(JSON.stringify(transferRequest));
+        const testFspId = 'TESTDESTFSPID';
         req.to.fspId = testFspId;
 
         await model.initialize(req);
