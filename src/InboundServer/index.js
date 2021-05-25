@@ -44,7 +44,7 @@ class InboundApi extends EventEmitter {
         });
 
         if (conf.validateInboundJws) {
-            this._jwsVerificationKeys = InboundApi._GetJwsKeys(conf.jwsVerificationKeysDirectory);
+            this._jwsVerificationKeys = conf.pm4mlEnabled ? conf.peerJWSKeys :  InboundApi._GetJwsKeys(conf.jwsVerificationKeysDirectory);
         }
         this._api = InboundApi._SetupApi({
             conf,

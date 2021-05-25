@@ -15,18 +15,20 @@ jest.mock('dotenv', () => ({
 }));
 
 const promClient = require('prom-client');
-
 const defaultConfig = require('./data/defaultConfig.json');
 const { Logger } = require('@mojaloop/sdk-standard-components');
-const ControlServer = require('../../ControlServer');
 const { MetricsClient } = require('../../lib/metrics');
+
+const TestControlServer = require('./ControlServer');
 
 process.env.PEER_ENDPOINT = '172.17.0.3:4000';
 process.env.BACKEND_ENDPOINT = '172.17.0.5:4000';
 process.env.CACHE_HOST = '172.17.0.2';
 process.env.CACHE_PORT = '6379';
+process.env.MGMT_API_WS_URL = '0.0.0.0';
 
 const index = require('../../index.js');
+
 
 describe('index.js', () => {
     beforeEach(() => {
@@ -63,23 +65,24 @@ describe('index.js', () => {
 });
 
 describe('Server', () => {
-    let server, controlClient, conf;
-
+    let server, controlServer, conf, logger;
+   
     beforeEach(async () => {
         promClient.register.clear();
-        const logger = new Logger.Logger({ stringify: () => '' });
+        logger = new Logger.Logger({ stringify: () => '' });
         conf = JSON.parse(JSON.stringify(defaultConfig));
         conf.enableTestFeatures = true;
+        conf.pm4mlEnabled = true;
+        conf.control.mgmtAPIWsUrl = 'localhost';
+        conf.control.mgmtAPIWsPort = 4005;
+        conf.control.port = conf.control.mgmtAPIWsPort;
+        controlServer = new TestControlServer.Server({ logger, appConfig: conf });
         server = new index.Server(conf, logger);
         await server.start();
-        controlClient = await ControlServer.Client.Create({
-            port: server.controlServer.address().port,
-            address: 'localhost',
-            logger,
-        });
     });
 
     afterEach(async () => {
+        await controlServer.stop();
         await server.stop();
     });
 
@@ -87,17 +90,9 @@ describe('Server', () => {
         let newConf;
         beforeEach(async () => {
             // not every server restarts on every config change, we'll make sure they all restart
-            newConf = { ...conf, logIndent: conf.logIndent + 1, control: { rubbish: 'data' }, test: { trash: 'data' } };
+            newConf = { ...conf, logIndent: conf.logIndent + 1, control: { ...conf.control, rubbish: 'data' }, test: { trash: 'data' } };
             // Just in case, we'll assert the new configuration is different to the old one
             expect(newConf).not.toEqual(conf);
-        });
-
-        it('Control client receives new configuration ', async () => {
-            const notification = controlClient.receive();
-            await controlClient.send(ControlServer.build.CONFIGURATION.PATCH(conf, newConf));
-
-            const result = await notification;
-            expect(result.data).toEqual(newConf);
         });
 
         it('reconfigures and restarts constituent servers when triggered by control client', async () => {
@@ -107,13 +102,12 @@ describe('Server', () => {
             server.outboundServer.reconfigure = jest.fn(() => restartOutbound);
             server.testServer.reconfigure = jest.fn(() => restartTest);
             server.oauthTestServer.reconfigure = jest.fn(() => restartOAuthTest);
-            server.controlServer.reconfigure = jest.fn(() => restartControl);
+            server.controlClient.reconfigure = jest.fn(() => restartControl);
 
-            await controlClient.send(ControlServer.build.CONFIGURATION.PATCH(conf, newConf));
-            // At the time this test was written, the last thing to happen after restart was for
-            // the control client to be sent a notification of the new configuration. Therefore, we
-            // wait for that to be received as an indication that the process is complete.
-            await controlClient.receive();
+            await controlServer.broadcastConfigChange(newConf);
+
+            // We wait for the servers to get restarted
+            await new Promise((wait) => setTimeout(wait, 1000));
 
             expect(server.inboundServer.reconfigure).toHaveBeenCalledTimes(1);
             expect(server.inboundServer.reconfigure).toHaveBeenCalledWith(
@@ -124,8 +118,8 @@ describe('Server', () => {
             expect(server.outboundServer.reconfigure).toHaveBeenCalledWith(
                 newConf, expect.any(Logger.Logger), expect.any(index.Cache), metricsClient
             );
-            expect(server.controlServer.reconfigure).toHaveBeenCalledTimes(1);
-            expect(server.controlServer.reconfigure).toHaveBeenCalledWith({
+            expect(server.controlClient.reconfigure).toHaveBeenCalledTimes(1);
+            expect(server.controlClient.reconfigure).toHaveBeenCalledWith({
                 logger: expect.any(Logger.Logger),
                 port: newConf.control.port,
                 appConfig: newConf
