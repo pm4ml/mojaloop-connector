@@ -285,7 +285,7 @@ class Server extends EventEmitter {
 */
 async function _GetUpdatedConfigFromMgmtAPI(conf, logger, client) {
 
-    logger.log(`connected to management api at ${conf.control.mgmtAPIWsUrl} at ${conf.control.mgmtAPIWsPort}`);
+    logger.log(`Getting updated config from Management API at ${conf.control.mgmtAPIWsUrl}:${conf.control.mgmtAPIWsPort}...`);
 
     const clientSendResponse = await client.send(ControlAgent.build.CONFIGURATION.READ());
     logger.log('client send returned:: ', clientSendResponse);
