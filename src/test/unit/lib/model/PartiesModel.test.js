@@ -48,7 +48,8 @@ describe('PartiesModel', () => {
 
                 unsubscribe: jest.fn(() => Promise.resolve())
             },
-            ...defaultConfig
+            ...defaultConfig,
+            tls: defaultConfig.outbound.tls,
         };
         data = { the: 'mocked data' };
         
