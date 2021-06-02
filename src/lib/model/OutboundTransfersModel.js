@@ -233,7 +233,7 @@ class OutboundTransfersModel {
 
                     this.data.getPartiesResponse = JSON.parse(msg);
 
-                    if(this.data.getPartiesResponse.body.errorInformation) {
+                    if(this.data.getPartiesResponse.body && this.data.getPartiesResponse.body.errorInformation) {
                         // this is an error response to our GET /parties request
                         const err = new BackendError(`Got an error response resolving party: ${util.inspect(this.data.getPartiesResponse.body, { depth: Infinity })}`, 500);
                         err.mojaloopError = this.data.getPartiesResponse.body;
@@ -417,8 +417,9 @@ class OutboundTransfersModel {
             };
 
             // listen for resolution events on the payee idType and idValue
-            const payeeKey = `${this.data.to.idType}_${this.data.to.idValue}`
-                + (this.data.to.idSubValue ? `_${this.data.to.idSubValue}` : '');
+            // const payeeKey = `${this.data.to.idType}_${this.data.to.idValue}`
+            //     + (this.data.to.idSubValue ? `_${this.data.to.idSubValue}` : '');
+            const payeeKey = PartiesModel.channelName(this.data.to.idType, this.data.to.idValue, this.data.to.idSubValue);
 
             const timer = setTimeout(async () => {
                 if(latencyTimerDone) {
