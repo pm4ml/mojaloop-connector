@@ -353,7 +353,7 @@ const putParticipantsByTypeAndId = async (ctx) => {
  * request.
  */
 const putPartiesByTypeAndId = async (ctx) => {
-    const { Type, ID, SubId } = ctx.state.path.params;
+    const { idType, idValue, idSubValue } = ctx.state.path.params;
 
     // publish an event onto the cache for subscribers to action
     const cacheId = PartiesModel.channelName(idType, idValue, idSubValue);
