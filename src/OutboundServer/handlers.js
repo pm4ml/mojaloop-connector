@@ -171,7 +171,14 @@ const putTransfers = async (ctx) => {
         // load the transfer model from cache and start it running again
         await model.load(ctx.state.path.params.transferId);
 
-        const response = await model.run();
+        const existingResume = model.data ? model.data.resume : {};
+
+        const response = await model.run({
+            resume: {
+                ...existingResume,
+                ...ctx.request.body
+            }
+        });
 
         // return the result
         ctx.response.status = 200;

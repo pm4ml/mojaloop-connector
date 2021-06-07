@@ -18,6 +18,7 @@ const TransferStateEnum = {
     'PREPARE_RECEIVED': 'PREPARE_RECEIVED',
     'ERROR_OCCURRED': 'ERROR_OCCURRED',
     'COMPLETED': 'COMPLETED',
+    'ABORTED': 'ABORTED',
 };
 
 
