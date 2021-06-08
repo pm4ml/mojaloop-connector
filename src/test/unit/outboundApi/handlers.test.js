@@ -35,10 +35,8 @@ const {
     PartiesModel
 } = require('@internal/model');
 
-/**
- * Mock the outbound transfer model to simulate throwing errors
- */
-OutboundTransfersModel.mockImplementation(() => {
+
+const outboundTransfersMockErrorImplementation = () => {
     return {
         run: async () => {
             // throw the mockError object when the model is run
@@ -53,7 +51,35 @@ OutboundTransfersModel.mockImplementation(() => {
             return;
         }
     };
-});
+};
+
+const outboundTransfersMockImplementation = () => {
+    let state = {};
+    return {
+        run: async (runState) => {
+            state = {
+                runState: runState,
+            };
+            return state;
+        },
+        initialize: async () => {
+            // nothing needed here
+            return;
+        },
+        load: async () => {
+            // nothing needed here
+            return;
+        },
+        getState: () => state,
+        data: {},
+    };
+};
+
+
+/**
+ * Mock the outbound transfer model to simulate throwing errors
+ */
+OutboundTransfersModel.mockImplementation(outboundTransfersMockErrorImplementation);
 
 /**
  * Mock the outbound bulk transfers model to simulate throwing errors
@@ -189,7 +215,7 @@ describe('Outbound API handlers:', () => {
         });
     });
 
-    describe('PUT /transfers', () => {
+    describe('PUT /transfers error handling', () => {
         test('returns correct error response body when model throws mojaloop error', async () => {
             const mockContext = {
                 request: {
@@ -220,6 +246,47 @@ describe('Outbound API handlers:', () => {
             expect(mockContext.response.body.message).toEqual('Mock error');
             expect(mockContext.response.body.statusCode).toEqual('3204');
             expect(mockContext.response.body.transferState).toEqual(mockError.transferState);
+        });
+    });
+
+    describe('PUT /transfers happy path', () => {
+        beforeAll(() => {
+            OutboundTransfersModel.mockImplementation(outboundTransfersMockImplementation);
+        });
+
+        afterAll(() => {
+            OutboundTransfersModel.mockImplementation(outboundTransfersMockErrorImplementation);
+        });
+
+        test('passes resume body to model run method', async () => {
+            const acceptQuoteBody = { acceptQuote: true };
+            const mockContext = {
+                request: {
+                    body: acceptQuoteBody,
+                    headers: {
+                        'fspiop-source': 'foo'
+                    }
+                },
+                response: {},
+                state: {
+                    conf: {},
+                    logger: { log: () => {} },
+                    path: {
+                        params: {
+                            transferId: '12345'
+                        }
+                    }
+                }
+            };
+
+            await handlers['/transfers/{transferId}'].put(mockContext);
+
+            // check response is correct
+            expect(mockContext.response.status).toEqual(200);
+            expect(mockContext.response.body).toBeTruthy();
+
+            //make sure the model was run with the incoming request body as its resume state
+            expect(mockContext.response.body.runState.resume).toEqual(acceptQuoteBody);
         });
     });
 

@@ -753,6 +753,7 @@ components:
           type: boolean
           enum:
             - true
+            - false
 
     transferContinuationAcceptQuote:
       type: object

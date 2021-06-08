@@ -109,6 +109,7 @@ class OutboundTransfersModel {
                 { name: 'executeTransfer', from: 'quoteReceived', to: 'succeeded' },
                 { name: 'getTransfer', to: 'succeeded' },
                 { name: 'error', from: '*', to: 'errored' },
+                { name: 'abort', from: '*', to: 'aborted' },
             ],
             methods: {
                 onTransition: this._handleTransition.bind(this),
@@ -194,6 +195,11 @@ class OutboundTransfersModel {
             case 'executeTransfer':
                 // prepare a transfer and wait for fulfillment
                 return this._executeTransfer();
+
+            case 'abort':
+                this._logger.log('State machine is aborting transfer');
+                this.data.abortedReason = args[0];
+                break;
 
             case 'error':
                 this._logger.log(`State machine is erroring with error: ${util.inspect(args)}`);
@@ -887,6 +893,10 @@ class OutboundTransfersModel {
                 resp.currentState = TransferStateEnum.COMPLETED;
                 break;
 
+            case 'aborted':
+                resp.currentState = TransferStateEnum.ABORTED;
+                break;
+
             case 'errored':
                 resp.currentState = TransferStateEnum.ERROR_OCCURRED;
                 break;
@@ -940,9 +950,18 @@ class OutboundTransfersModel {
 
     /**
      * Returns a promise that resolves when the state machine has reached a terminal state
+     *
+     * @param mergeDate {object} - an object to merge with the model state (data) before running the state machine
      */
-    async run() {
+    async run(mergeData) {
         try {
+            if(mergeData) {
+                this.data = {
+                    ...this.data,
+                    ...mergeData,
+                };
+            }
+
             // run transitions based on incoming state
             switch(this.data.currentState) {
                 case 'start':
@@ -958,6 +977,13 @@ class OutboundTransfersModel {
                     break;
 
                 case 'payeeResolved':
+                    if(!this._autoAcceptParty && (this.data.resume && !this.data.resume.acceptParty)) {
+                        // resuming after a party resolution halt, backend did not accept the party.
+                        await this.stateMachine.abort('Payee rejected by backend');
+                        await this._save();
+                        return this.getResponse();
+                    }
+
                     // next transition is to requestQuote
                     await this.stateMachine.requestQuote();
                     this._logger.log(`Quote received for transfer ${this.data.transferId}`);
@@ -970,6 +996,13 @@ class OutboundTransfersModel {
                     break;
 
                 case 'quoteReceived':
+                    if(!this._autoAcceptQuotes && (this.data.resume && !this.data.resume.acceptQuote)) {
+                        // resuming after a party resolution halt, backend did not accept the party.
+                        await this.stateMachine.abort('Quote rejected by backend');
+                        await this._save();
+                        return this.getResponse();
+                    }
+
                     // next transition is executeTransfer
                     await this.stateMachine.executeTransfer();
                     this._logger.log(`Transfer ${this.data.transferId} has been completed`);
