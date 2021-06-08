@@ -629,7 +629,12 @@ describe('inboundModel', () => {
 
         test('sends notification to fsp backend', async () => {
             BackendRequests.__putTransfersNotification = jest.fn().mockReturnValue(Promise.resolve({}));
-            const backendResponse = JSON.parse(JSON.stringify(notificationToPayee));
+            const notif = JSON.parse(JSON.stringify(notificationToPayee));
+
+            const expectedRequest = {
+                currentState: 'COMPLETED',
+                finalNotification: notif.data,
+            };
 
             const model = new Model({
                 ...config,
@@ -637,10 +642,10 @@ describe('inboundModel', () => {
                 logger,
             });
 
-            await model.sendNotificationToPayee(backendResponse.data, transferId);
+            await model.sendNotificationToPayee(notif.data, transferId);
             expect(BackendRequests.__putTransfersNotification).toHaveBeenCalledTimes(1);
             const call = BackendRequests.__putTransfersNotification.mock.calls[0];
-            expect(call[0]).toEqual(backendResponse.data);
+            expect(call[0]).toEqual(expectedRequest);
             expect(call[1]).toEqual(transferId);
         });
     });
