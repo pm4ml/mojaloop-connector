@@ -36,7 +36,10 @@ class ProxyModel {
             logger: this._logger,
             peerEndpoint: config.peerEndpoint,
             dfspId: config.dfspId,
-            tls: config.tls,
+            tls: {
+                enabled: config.outbound.tls.mutualTLS.enabled,
+                creds: config.outbound.tls.creds,
+            },
             jwsSign: config.jwsSign,
             jwsSigningKey: config.jwsSigningKey,
             wso2Auth: config.wso2Auth

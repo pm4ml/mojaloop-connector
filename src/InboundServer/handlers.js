@@ -8,11 +8,13 @@
  *       James Bush - james.bush@modusbox.com                             *
  *  CONTRIBUTORS:                                                         *
  *       Steven Oderayi - steven.oderayi@modusbox.com                     *
+ *       Paweł Marzec - pawel.marzec@modusbox.com                         *
  **************************************************************************/
 
 'use strict';
 
 const Model = require('@internal/model').InboundTransfersModel;
+const PartiesModel = require('@internal/model').PartiesModel;
 
 /**
  * Handles a GET /authorizations/{id} request
@@ -351,20 +353,36 @@ const putParticipantsByTypeAndId = async (ctx) => {
  * request.
  */
 const putPartiesByTypeAndId = async (ctx) => {
-    const { Type, ID, SubId } = ctx.state.path.params;
+    const idType = ctx.state.path.params.Type;
+    const idValue = ctx.state.path.params.ID;
+    const idSubValue = ctx.state.path.params.SubId;
+
+    // // publish an event onto the cache for subscribers to action
+    // const cacheId = PartiesModel.channelName(idType, idValue, idSubValue);
+    // const value = {
+    //     headers: ctx.request.headers,
+    //     body: ctx.request.body
+    // };
+    // if (ctx.state.conf.multiplePartiesResponse) {
+    //     await ctx.state.cache.add(cacheId, value);
+    // } else {
+    //     await ctx.state.cache.publish(cacheId, value);
+    // }
 
     // publish an event onto the cache for subscribers to action
-    const cacheId = `${Type}_${ID}` + (SubId ? `_${SubId}` : '');
-    const value = {
-        headers: ctx.request.headers,
-        body: ctx.request.body
-    };
-    if (ctx.state.conf.multiplePartiesResponse) {
-        await ctx.state.cache.add(cacheId, value);
-    } else {
-        await ctx.state.cache.publish(cacheId, value);
-    }
+    await PartiesModel.triggerDeferredJob({
+        cache: ctx.state.cache,
+        type: idType,
+        id: idValue,
+        subId: idSubValue,
+        message: {
+            headers: ctx.request.headers,
+            body: ctx.request.body
+        }
+    });
+
     ctx.response.status = 200;
+    ctx.response.body = '';
 };
 
 
@@ -452,15 +470,25 @@ const putPartiesByTypeAndIdError = async(ctx) => {
     // note that we publish the event the same way we publish a success PUT
     // the subscriber will notice the body contains an errorInformation property
     // and recognise it as an error response
-    const cacheId = `${idType}_${idValue}` + (idSubValue ? `_${idSubValue}` : '');
-    await ctx.state.cache.publish(cacheId, {
-        headers: ctx.request.headers,
-        body: ctx.request.body
+    // const cacheId = PartiesModel.channelName(idType, idValue, idSubValue);
+    // const cacheId = `${idType}_${idValue}` + (idSubValue ? `_${idSubValue}` : '');
+    // await ctx.state.cache.publish(cacheId, {
+    //     headers: ctx.request.headers,
+    //     body: ctx.request.body
+    // });
+    await PartiesModel.triggerDeferredJob({
+        cache: ctx.state.cache,
+        type: idType,
+        id: idValue,
+        subId: idSubValue,
+        message: {
+            headers: ctx.request.headers,
+            body: ctx.request.body
+        }
     });
     ctx.response.status = 200;
     ctx.response.body = '';
 };
-
 
 /**
  * Handles a PUT /quotes/{ID}/error request. This is an error response to a POST /quotes request
