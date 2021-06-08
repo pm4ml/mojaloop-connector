@@ -16,6 +16,7 @@ const StateMachine = require('javascript-state-machine');
 const { Ilp, MojaloopRequests } = require('@mojaloop/sdk-standard-components');
 const shared = require('@internal/shared');
 const { BackendError, TransferStateEnum } = require('./common');
+const PartiesModel = require('./PartiesModel');
 
 
 /**
@@ -220,8 +221,11 @@ class OutboundTransfersModel {
         // eslint-disable-next-line no-async-promise-executor
         return new Promise(async (resolve, reject) => {
             // listen for resolution events on the payee idType and idValue
-            const payeeKey = `${this.data.to.idType}_${this.data.to.idValue}`
-              + (this.data.to.idSubValue ? `_${this.data.to.idSubValue}` : '');
+            const payeeKey = PartiesModel.channelName(
+                this.data.to.idType,
+                this.data.to.idValue,
+                this.data.to.idSubValue
+            );
 
             let latencyTimerDone;
 
@@ -235,7 +239,7 @@ class OutboundTransfersModel {
 
                     this.data.getPartiesResponse = JSON.parse(msg);
 
-                    if(this.data.getPartiesResponse.body.errorInformation) {
+                    if(this.data.getPartiesResponse.body && this.data.getPartiesResponse.body.errorInformation) {
                         // this is an error response to our GET /parties request
                         const err = new BackendError(`Got an error response resolving party: ${util.inspect(this.data.getPartiesResponse.body, { depth: Infinity })}`, 500);
                         err.mojaloopError = this.data.getPartiesResponse.body;
@@ -419,8 +423,9 @@ class OutboundTransfersModel {
             };
 
             // listen for resolution events on the payee idType and idValue
-            const payeeKey = `${this.data.to.idType}_${this.data.to.idValue}`
-                + (this.data.to.idSubValue ? `_${this.data.to.idSubValue}` : '');
+            // const payeeKey = `${this.data.to.idType}_${this.data.to.idValue}`
+            //     + (this.data.to.idSubValue ? `_${this.data.to.idSubValue}` : '');
+            const payeeKey = PartiesModel.channelName(this.data.to.idType, this.data.to.idValue, this.data.to.idSubValue);
 
             const timer = setTimeout(async () => {
                 if(latencyTimerDone) {

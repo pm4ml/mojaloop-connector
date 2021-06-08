@@ -440,6 +440,8 @@ const mojaloopBulkPrepareToInternalBulkTransfer = (external, bulkQuotes, ilp) =>
     return internal;
 };
 
+const deferredJob = require('./deferredJob');
+
 module.exports = {
     internalPartyToMojaloopParty,
     internalQuoteResponseToMojaloop,
@@ -452,4 +454,5 @@ module.exports = {
     mojaloopBulkQuotesRequestToInternal,
     internalBulkQuotesResponseToMojaloop,
     mojaloopBulkPrepareToInternalBulkTransfer,
+    deferredJob
 };
