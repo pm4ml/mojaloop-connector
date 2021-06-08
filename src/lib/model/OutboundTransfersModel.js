@@ -946,7 +946,7 @@ class OutboundTransfersModel {
     /**
      * Returns a promise that resolves when the state machine has reached a terminal state
      *
-     * @param mergeDate {object} - an object to merge with the model state (data) before running the state maching
+     * @param mergeDate {object} - an object to merge with the model state (data) before running the state machine
      */
     async run(mergeData) {
         try {
