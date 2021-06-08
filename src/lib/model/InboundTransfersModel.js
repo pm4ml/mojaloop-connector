@@ -733,10 +733,34 @@ class InboundTransfersModel {
     */
     async sendNotificationToPayee(body, transferId) {
         try {
-            const res = await this._backendRequests.putTransfersNotification(body, transferId);
+            // load any cached state for this transfer e.g. quote request/response etc...
+            this.data = await this._cache.get(`transferModel_${transferId}`);
+
+            // if we didnt have anything cached, start from scratch
+            if(!this.data) {
+                this.data = {};
+            }
+
+            // tag the final notification body on to the state
+            this.data.finalNotification = body;
+
+            if(body.transferState === 'COMMITTED') {
+                // if the transfer was successful in the switch, set the overall transfer state to COMPLETED
+                this.data.currentState = TransferStateEnum.COMPLETED;
+            }
+            else {
+                // if the final notification has anything other than COMMITTED as the final state, set an error
+                // in the transfer state.
+                this.data.currentState == TransferStateEnum.ERROR_OCCURED;
+                this.data.lastError = 'Final notification state not COMMITTED';
+            }
+
+            await this._save();
+
+            const res = await this._backendRequests.putTransfersNotification(this.data, transferId);
             return res;
         } catch (err) {
-            this._logger.push({ err }).log('Error in sendNotificationToPayee');
+            this._logger.push({ err }).log('Error notifying backend of final transfer state');
         }
     }
 
