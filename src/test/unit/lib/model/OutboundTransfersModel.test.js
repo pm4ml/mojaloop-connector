@@ -222,6 +222,87 @@ describe('outboundModel', () => {
         expect(MojaloopRequests.__postQuotes).toHaveBeenCalledTimes(1);
         expect(MojaloopRequests.__postTransfers).toHaveBeenCalledTimes(1);
 
+        // make sure no PATCH was sent as we did not set config or receive a RESERVED state
+        expect(MojaloopRequests.__patchTransfers).toHaveBeenCalledTimes(0);
+
+        // check we stopped at payeeResolved state
+        expect(result.currentState).toBe('COMPLETED');
+        expect(StateMachine.__instance.state).toBe('succeeded');
+    });
+
+
+    test('sends a PATCH /transfers/{transferId} request to payee DFSP when SEND_FINAL_NOTIFICATION_IF_REQUESTED is true', async () => {
+        config.autoAcceptParty = true;
+        config.autoAcceptQuotes = true;
+        config.sendFinalNotificationIfRequested = true;
+
+        MojaloopRequests.__getParties = jest.fn(() => {
+            emitPartyCacheMessage(cache, payeeParty);
+            return Promise.resolve(dummyRequestsModuleResponse);
+        });
+
+        MojaloopRequests.__postQuotes = jest.fn((postQuotesBody) => {
+            // ensure that the `MojaloopRequests.postQuotes` method has been called with correct arguments
+            // including extension list
+            const extensionList = postQuotesBody.extensionList.extension;
+            expect(extensionList).toBeTruthy();
+            expect(extensionList.length).toBe(2);
+            expect(extensionList[0]).toEqual({ key: 'qkey1', value: 'qvalue1' });
+            expect(extensionList[1]).toEqual({ key: 'qkey2', value: 'qvalue2' });
+
+            // simulate a callback with the quote response
+            emitQuoteResponseCacheMessage(cache, postQuotesBody.quoteId, quoteResponse);
+            return Promise.resolve(dummyRequestsModuleResponse);
+        });
+
+        const pb = JSON.parse(JSON.stringify(transferFulfil));
+        pb.data.body.transferState = 'RESERVED';
+
+        MojaloopRequests.__postTransfers = jest.fn((postTransfersBody, destFspId) => {
+            //ensure that the `MojaloopRequests.postTransfers` method has been called with the correct arguments
+            // set as the destination FSPID, picked up from the header's value `fspiop-source`
+            expect(model.data.quoteResponseSource).toBe(quoteResponse.headers['fspiop-source']);
+
+            const extensionList = postTransfersBody.extensionList.extension;
+            expect(extensionList).toBeTruthy();
+            expect(extensionList.length).toBe(2);
+            expect(extensionList[0]).toEqual({ key: 'tkey1', value: 'tvalue1' });
+            expect(extensionList[1]).toEqual({ key: 'tkey2', value: 'tvalue2' });
+
+            expect(destFspId).toBe(quoteResponse.headers['fspiop-source']);
+            expect(model.data.to.fspId).toBe(payeeParty.body.party.partyIdInfo.fspId);
+            expect(quoteResponse.headers['fspiop-source']).not.toBe(model.data.to.fspId);
+
+            // simulate a callback with the transfer fulfilment
+            emitTransferFulfilCacheMessage(cache, postTransfersBody.transferId, pb);
+            return Promise.resolve(dummyRequestsModuleResponse);
+        });
+
+        const model = new Model({
+            cache,
+            logger,
+            metricsClient,
+            ...config,
+        });
+
+        await model.initialize(JSON.parse(JSON.stringify(transferRequest)));
+
+        expect(StateMachine.__instance.state).toBe('start');
+
+        // start the model running
+        const result = await model.run();
+
+        expect(MojaloopRequests.__getParties).toHaveBeenCalledTimes(1);
+        expect(MojaloopRequests.__postQuotes).toHaveBeenCalledTimes(1);
+        expect(MojaloopRequests.__postTransfers).toHaveBeenCalledTimes(1);
+        expect(MojaloopRequests.__patchTransfers).toHaveBeenCalledTimes(1);
+        expect(MojaloopRequests.__patchTransfers.mock.calls[0][0]).toEqual(model.data.transferId);
+        expect(MojaloopRequests.__patchTransfers.mock.calls[0][1].transferState).toEqual('COMMITTED');
+        expect(MojaloopRequests.__patchTransfers.mock.calls[0][1].completedTimestamp).not.toBeUndefined();
+        expect(MojaloopRequests.__patchTransfers.mock.calls[0][2]).toEqual(quoteResponse.headers['fspiop-source']);
+
+
+
         // check we stopped at payeeResolved state
         expect(result.currentState).toBe('COMPLETED');
         expect(StateMachine.__instance.state).toBe('succeeded');
