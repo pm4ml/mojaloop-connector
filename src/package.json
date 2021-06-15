@@ -1,6 +1,6 @@
 {
   "name": "@modusintegration/mojaloop-connector",
-  "version": "13.2.0",
+  "version": "13.3.0",
   "description": "An adapter for connecting to Mojaloop API enabled switches.",
   "main": "index.js",
   "scripts": {
@@ -39,7 +39,7 @@
     "@internal/router": "file:lib/router",
     "@internal/shared": "file:lib/model/lib/shared",
     "@internal/validate": "file:lib/validate",
-    "@mojaloop/sdk-standard-components": "15.10.2",
+    "@mojaloop/sdk-standard-components": "15.11.0",
     "ajv": "^6.12.2",
     "co-body": "^6.0.0",
     "dotenv": "^8.2.0",

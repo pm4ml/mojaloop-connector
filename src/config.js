@@ -167,6 +167,7 @@ module.exports = {
 
     proxyConfig: env.get('PROXY_CONFIG_PATH').asYamlConfig(),
     reserveNotification: env.get('RESERVE_NOTIFICATION').default('false').asBool(),
+    sendFinalNotificationIfRequested: env.get('SEND_FINAL_NOTIFICATION_IF_REQUESTED').default('false').asBool(),
     // resourceVersions config should be string in format: "resouceOneName=1.0,resourceTwoName=1.1"
     resourceVersions: env.get('RESOURCE_VERSIONS').default('').asResourceVersions(),
     metrics: {

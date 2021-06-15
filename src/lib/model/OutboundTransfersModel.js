@@ -37,6 +37,7 @@ class OutboundTransfersModel {
         this._checkIlp = config.checkIlp;
         this._multiplePartiesResponse = config.multiplePartiesResponse;
         this._multiplePartiesResponseSeconds = config.multiplePartiesResponseSeconds;
+        this._sendFinalNotificationIfRequested = config.sendFinalNotificationIfRequested;
 
         if (this._autoAcceptParty && this._multiplePartiesResponse) {
             throw new Error('Conflicting config options provided: autoAcceptParty and multiplePartiesResponse');
@@ -693,6 +694,26 @@ class OutboundTransfersModel {
 
                     if(this._checkIlp && !this._ilp.validateFulfil(fulfil.body.fulfilment, this.data.quoteResponse.body.condition)) {
                         throw new Error('Invalid fulfilment received from peer DFSP.');
+                    }
+
+                    if(this._sendFinalNotificationIfRequested && fulfil.body.transferState === 'RESERVED') {
+                        // we need to send a PATCH notification back to say we have committed the transfer.
+                        // Note that this is normally a switch only responsibility but the capability is
+                        // implemented here to support testing use cases where the mojaloop-connector is
+                        // acting in a peer-to-peer scenario and it is desirable for the other peer to
+                        // receive this notification.
+
+                        // Note that the transfer is considered committed as far as this (payer) side is concerned
+                        // we will use the current server time as committed timestamp.
+                        const patchNotification = {
+                            completedTimestamp: (new Date()).toISOString(),
+                            transferState: 'COMMITTED',
+                        };
+                        const res = this._requests.patchTransfers(this.data.transferId,
+                            patchNotification, this.data.quoteResponseSource);
+
+                        this.data.patch = res.originalRequest;
+                        this._logger.log(`PATCH final notification sent to peer for transfer ${this.data.transferId}`);
                     }
 
                     return resolve(fulfil.body);
