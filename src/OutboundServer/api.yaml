@@ -1046,7 +1046,6 @@ components:
     transferResponse:
       type: object
       required:
-        - homeTransactionId
         - from
         - to
         - amountType
