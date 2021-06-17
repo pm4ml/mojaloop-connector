@@ -57,7 +57,14 @@
     "payeeFspCommission": 0,
     "condition": "fH9pAYDQbmoZLPbvv3CSW2RfjU4jvM4ApG_fqGnR7Xs",
     "expiration": "2019-11-12T09:02:10.378Z",
-    "isValid": 1
+    "isValid": 1,
+    "extensionList": [{
+        "key": "qkey1",
+        "value": "qvalue1"
+    }, {
+        "key": "qkey2",
+        "value": "qvalue2"
+    }]
   },
   "internalGetOTPResponse" : {
     "value": "123456"

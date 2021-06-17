@@ -86,6 +86,11 @@ describe('inboundModel', () => {
             expect(MojaloopRequests.__putQuotes.mock.calls[0][1].expiration).toBe(mockArgs.internalQuoteResponse.expiration);
             expect(MojaloopRequests.__putQuotes.mock.calls[0][1].ilpPacket).toBe(expectedQuoteResponseILP.ilpPacket);
             expect(MojaloopRequests.__putQuotes.mock.calls[0][1].condition).toBe(expectedQuoteResponseILP.condition);
+
+            // check the extension list gets translated correctly to the mojaloop form
+            expect(MojaloopRequests.__putQuotes.mock.calls[0][1].extensionList)
+                .toStrictEqual({ extension: mockArgs.internalQuoteResponse.extensionList });
+
             expect(MojaloopRequests.__putQuotes.mock.calls[0][2]).toBe(mockArgs.fspId);
         });
 

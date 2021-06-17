@@ -599,6 +599,8 @@ components:
         expiration:
           $ref: '#/components/schemas/timestamp'
           description: An optional deadline for responding to the quote request.
+        extensionList:
+          $ref: '#/components/schemas/extensionList'
 
     quoteResponse:
       type: object
@@ -645,6 +647,8 @@ components:
         geoCode:
           $ref: '#/components/schemas/geoCode'
           description: Longitude and Latitude of the Payee. Can be used to detect fraud.
+        extensionList:
+          $ref: '#/components/schemas/extensionList'
 
     timestamp:
       type: string
