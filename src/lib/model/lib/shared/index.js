@@ -10,6 +10,8 @@
 
 'use strict';
 
+const object_strip_undefined_keys = (o) =>
+    Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
 
 /**
  * Build a quote party object from an outgoing transfer API party
@@ -95,7 +97,8 @@ const mojaloopPartyToInternalParty = (external) => {
         }
     }
 
-    return internal;
+    const result = object_strip_undefined_keys(internal);
+    return result;
 };
 
 /**
@@ -111,7 +114,8 @@ const mojaloopPartyIdInfoToInternalPartyIdInfo = (external) => {
     internal.idSubValue = external.partySubIdOrType;
     internal.fspId = external.fspId;
 
-    return internal;
+    const result = object_strip_undefined_keys(internal);
+    return result;
 };
 
 /**
