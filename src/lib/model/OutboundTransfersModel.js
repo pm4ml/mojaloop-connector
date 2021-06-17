@@ -107,6 +107,7 @@ class OutboundTransfersModel {
             transitions: [
                 { name: 'resolvePayee', from: 'start', to: 'payeeResolved' },
                 { name: 'requestQuote', from: 'payeeResolved', to: 'quoteReceived' },
+                { name: 'requestQuote', from: 'start', to: 'quoteReceived' },
                 { name: 'executeTransfer', from: 'quoteReceived', to: 'succeeded' },
                 { name: 'getTransfer', to: 'succeeded' },
                 { name: 'error', from: '*', to: 'errored' },
@@ -163,6 +164,9 @@ class OutboundTransfersModel {
             this.data.direction = 'OUTBOUND';
         }
 
+        if(this.data.skipPartyLookup && typeof(this.data.to.fspId) === undefined) {
+            throw new Error('fspId of to party must be specifid when skipPartyLookup is truthy');
+        }
 
         this._initStateMachine(this.data.currentState);
     }
@@ -976,6 +980,8 @@ class OutboundTransfersModel {
      */
     async run(mergeData) {
         try {
+            // if we were passed a mergeData object...
+            // merge it with our existing state, overwriting any existing matching root level keys
             if(mergeData) {
                 this.data = {
                     ...this.data,
@@ -986,7 +992,15 @@ class OutboundTransfersModel {
             // run transitions based on incoming state
             switch(this.data.currentState) {
                 case 'start':
-                    // next transition is to resolvePayee
+                    // first transition is to resolvePayee
+                    if(typeof(this.data.to.fspId) !== 'undefined'
+                        && this.data.skipPartyLookup) {
+                        // we already have the payee DFSP and we have bee asked to skip party resolution
+                        this._logger.log(`Skipping payee resolution for transfer ${this.data.transferId} as to.fspId was provided and skipPartyLookup is truthy`);
+                        this.data.currentState = 'payeeResolved';
+                        break;
+                    }
+
                     await this.stateMachine.resolvePayee();
                     this._logger.log(`Payee resolved for transfer ${this.data.transferId}`);
                     if(this.stateMachine.state === 'payeeResolved' && !this._autoAcceptParty) {
