@@ -82,10 +82,18 @@ describe('inboundModel', () => {
         test('calls `mojaloopRequests.putQuotes` with the expected arguments.', async () => {
             await model.quoteRequest(mockArgs.quoteRequest, mockArgs.fspId);
 
+            expect(BackendRequests.__postQuoteRequests).toHaveBeenCalledTimes(1);
+            expect(BackendRequests.__postQuoteRequests.mock.calls[0][0]).toStrictEqual(mockArgs.internalQuoteRequest);
+
             expect(MojaloopRequests.__putQuotes).toHaveBeenCalledTimes(1);
             expect(MojaloopRequests.__putQuotes.mock.calls[0][1].expiration).toBe(mockArgs.internalQuoteResponse.expiration);
             expect(MojaloopRequests.__putQuotes.mock.calls[0][1].ilpPacket).toBe(expectedQuoteResponseILP.ilpPacket);
             expect(MojaloopRequests.__putQuotes.mock.calls[0][1].condition).toBe(expectedQuoteResponseILP.condition);
+
+            // check the extension list gets translated correctly to the mojaloop form
+            expect(MojaloopRequests.__putQuotes.mock.calls[0][1].extensionList)
+                .toStrictEqual({ extension: mockArgs.internalQuoteResponse.extensionList });
+
             expect(MojaloopRequests.__putQuotes.mock.calls[0][2]).toBe(mockArgs.fspId);
         });
 
