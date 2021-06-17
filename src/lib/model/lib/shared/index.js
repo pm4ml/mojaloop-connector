@@ -95,6 +95,7 @@ const mojaloopPartyToInternalParty = (external) => {
         }
     }
 
+    Object.keys(internal).forEach(k => internal[k] === undefined && delete(internal[k]));
     return internal;
 };
 
@@ -111,6 +112,7 @@ const mojaloopPartyIdInfoToInternalPartyIdInfo = (external) => {
     internal.idSubValue = external.partySubIdOrType;
     internal.fspId = external.fspId;
 
+    Object.keys(internal).forEach(k => internal[k] === undefined && delete(internal[k]));
     return internal;
 };
 
