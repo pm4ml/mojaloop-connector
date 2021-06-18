@@ -54,13 +54,9 @@ const outboundTransfersMockErrorImplementation = () => {
 };
 
 const outboundTransfersMockImplementation = () => {
-    let state = {};
     return {
         run: async (runState) => {
-            state = {
-                runState: runState,
-            };
-            return state;
+            return runState;
         },
         initialize: async () => {
             // nothing needed here
@@ -283,10 +279,10 @@ describe('Outbound API handlers:', () => {
 
             // check response is correct
             expect(mockContext.response.status).toEqual(200);
-            expect(mockContext.response.body).toBeTruthy();
 
-            //make sure the model was run with the incoming request body as its resume state
-            expect(mockContext.response.body.runState.resume).toEqual(acceptQuoteBody);
+            //make sure the model was run with the incoming request body as its parameter
+            //this will be the return value of the run() function of the mock implementation
+            expect(mockContext.response.body).toStrictEqual(acceptQuoteBody);
         });
     });
 

@@ -982,7 +982,19 @@ class OutboundTransfersModel {
         try {
             // if we were passed a mergeData object...
             // merge it with our existing state, overwriting any existing matching root level keys
+
+
             if(mergeData) {
+                // first remove any merge keys that we do not want to allow to be changed
+                // note that we could do this in the swagger also. this is to put a responsibility
+                // on this model to defend itself.
+                const permittedMergeKeys = ['acceptParty', 'acceptQuote', 'amount'];
+                Object.keys(mergeData).forEach(k => {
+                    if(permittedMergeKeys.indexOf(k) === -1) {
+                        delete mergeData[k];
+                    }
+                });
+
                 this.data = {
                     ...this.data,
                     ...mergeData,
@@ -1011,7 +1023,7 @@ class OutboundTransfersModel {
                     break;
 
                 case 'payeeResolved':
-                    if(!this._autoAcceptParty && (this.data.resume && !this.data.acceptParty)) {
+                    if(!this._autoAcceptParty && !this.data.acceptParty && !this.data.skipPartyLookup) {
                         // resuming after a party resolution halt, backend did not accept the party.
                         await this.stateMachine.abort('Payee rejected by backend');
                         await this._save();
@@ -1030,7 +1042,7 @@ class OutboundTransfersModel {
                     break;
 
                 case 'quoteReceived':
-                    if(!this._autoAcceptQuotes && (this.data.resume && !this.data.acceptQuote)) {
+                    if(!this._autoAcceptQuotes && !this.data.acceptQuote) {
                         // resuming after a party resolution halt, backend did not accept the party.
                         await this.stateMachine.abort('Quote rejected by backend');
                         await this._save();
