@@ -886,6 +886,9 @@ components:
           $ref: '#/components/schemas/extensionList'
         transferRequestExtensions:
           $ref: '#/components/schemas/extensionList'
+        skipPartyLookup:
+          description: Set to true if supplying an FSPID for the payee party and no party resolution is needed. This may be useful is a previous party resolution has been performed.
+          type: boolean
 
     requestToPayRequest:
       type: object
@@ -1118,6 +1121,9 @@ components:
             Object representing the last error to occur during a transfer process. This may be a Mojaloop API error returned from another entity in the scheme
             or an object representing other types of error e.g. exceptions that may occur inside the scheme adapter.
           $ref: '#/components/schemas/transferError'
+        skipPartyLookup:
+          description: Will be true if a payee FSPID was supplied and party lookup phase was requested to be skipped.
+          type: boolean
 
     bulkTransferResponse:
       type: object
