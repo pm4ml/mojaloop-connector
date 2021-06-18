@@ -993,8 +993,7 @@ class OutboundTransfersModel {
             switch(this.data.currentState) {
                 case 'start':
                     // first transition is to resolvePayee
-                    if(typeof(this.data.to.fspId) !== 'undefined'
-                        && this.data.skipPartyLookup) {
+                    if(typeof(this.data.to.fspId) !== 'undefined' && this.data.skipPartyLookup) {
                         // we already have the payee DFSP and we have bee asked to skip party resolution
                         this._logger.log(`Skipping payee resolution for transfer ${this.data.transferId} as to.fspId was provided and skipPartyLookup is truthy`);
                         this.data.currentState = 'payeeResolved';
