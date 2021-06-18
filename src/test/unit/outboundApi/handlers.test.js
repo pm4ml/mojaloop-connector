@@ -66,7 +66,6 @@ const outboundTransfersMockImplementation = () => {
             // nothing needed here
             return;
         },
-        getState: () => state,
         data: {},
     };
 };
