@@ -1012,7 +1012,7 @@ class OutboundTransfersModel {
                     break;
 
                 case 'payeeResolved':
-                    if(!this._autoAcceptParty && (this.data.resume && !this.data.resume.acceptParty)) {
+                    if(!this._autoAcceptParty && (this.data.resume && !this.data.acceptParty)) {
                         // resuming after a party resolution halt, backend did not accept the party.
                         await this.stateMachine.abort('Payee rejected by backend');
                         await this._save();
@@ -1031,7 +1031,7 @@ class OutboundTransfersModel {
                     break;
 
                 case 'quoteReceived':
-                    if(!this._autoAcceptQuotes && (this.data.resume && !this.data.resume.acceptQuote)) {
+                    if(!this._autoAcceptQuotes && (this.data.resume && !this.data.acceptQuote)) {
                         // resuming after a party resolution halt, backend did not accept the party.
                         await this.stateMachine.abort('Quote rejected by backend');
                         await this._save();

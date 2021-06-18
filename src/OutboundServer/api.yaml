@@ -754,6 +754,8 @@ components:
           enum:
             - true
             - false
+      additionalProperties:
+        type: string
 
     transferContinuationAcceptQuote:
       type: object
@@ -765,6 +767,8 @@ components:
           enum:
             - true
             - false
+      additionalProperties:
+        type: string
 
     transferContinuationAcceptOTP:
       type: object
