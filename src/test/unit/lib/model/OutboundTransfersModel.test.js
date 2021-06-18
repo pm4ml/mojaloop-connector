@@ -77,7 +77,12 @@ describe('outboundModel', () => {
         // simulate a callback with the resolved party
         MojaloopRequests.__getParties = jest.fn(() => {
             emitPartyCacheMessage(cache, payeeParty);
-            return dummyRequestsModuleResponse;
+            return {
+                originalRequest: {
+                    headers: [],
+                    body: {},
+                }
+            };
         });
 
         // simulate a delayed callback with the quote response
@@ -85,7 +90,12 @@ describe('outboundModel', () => {
             setTimeout(() => {
                 emitQuoteResponseCacheMessage(cache, postQuotesBody.quoteId, quoteResponse);
             }, delays.requestQuotes ? delays.requestQuotes * 1000 : 0);
-            return dummyRequestsModuleResponse;
+            return {
+                originalRequest: {
+                    headers: [],
+                    body: postQuotesBody,
+                }
+            };
         });
 
         // simulate a delayed callback with the transfer fulfilment
@@ -93,7 +103,12 @@ describe('outboundModel', () => {
             setTimeout(() => {
                 emitTransferFulfilCacheMessage(cache, postTransfersBody.transferId, transferFulfil);
             }, delays.prepareTransfer ? delays.prepareTransfer * 1000 : 0);
-            return dummyRequestsModuleResponse;
+            return {
+                originalRequest: {
+                    headers: [],
+                    body: postTransfersBody,
+                }
+            };
         });
 
         const model = new Model({
@@ -130,10 +145,21 @@ describe('outboundModel', () => {
         config = JSON.parse(JSON.stringify(defaultConfig));
         MojaloopRequests.__postParticipants = jest.fn(() => Promise.resolve(dummyRequestsModuleResponse));
         MojaloopRequests.__getParties = jest.fn(() => Promise.resolve(dummyRequestsModuleResponse));
-        MojaloopRequests.__postQuotes = jest.fn(() => Promise.resolve(dummyRequestsModuleResponse));
         MojaloopRequests.__putQuotes = jest.fn(() => Promise.resolve(dummyRequestsModuleResponse));
         MojaloopRequests.__putQuotesError = jest.fn(() => Promise.resolve(dummyRequestsModuleResponse));
-        MojaloopRequests.__postTransfers = jest.fn(() => Promise.resolve(dummyRequestsModuleResponse));
+
+        MojaloopRequests.__postQuotes = jest.fn((body) => Promise.resolve({
+            originalRequest: {
+                headers: [],
+                body: body,
+            }
+        }));
+        MojaloopRequests.__postTransfers = jest.fn((body) => Promise.resolve({
+            originalRequest: {
+                headers: [],
+                body: body,
+            }
+        }));
 
         cache = new Cache({
             host: 'dummycachehost',
@@ -569,7 +595,7 @@ describe('outboundModel', () => {
         expect(StateMachine.__instance.state).toBe('payeeResolved');
 
         // now run the model again. this should trigger transition to quote request
-        resultPromise = model.run();
+        resultPromise = model.run({ acceptParty: true });
 
         // now we started the model running we simulate a callback with the quote response
         cache.publish(`qt_${model.data.quoteId}`, JSON.stringify(quoteResponse));
@@ -580,6 +606,168 @@ describe('outboundModel', () => {
         // check we stopped at payeeResolved state
         expect(result.currentState).toBe('WAITING_FOR_QUOTE_ACCEPTANCE');
         expect(StateMachine.__instance.state).toBe('quoteReceived');
+    });
+
+    test('Allows change of transferAmount at accept party phase', async () => {
+        config.autoAcceptParty = false;
+        config.autoAcceptQuotes = false;
+
+        let model = new Model({
+            cache,
+            logger,
+            metricsClient,
+            ...config,
+        });
+
+        const req = JSON.parse(JSON.stringify(transferRequest));
+
+        // record the initial requested transfer amount
+        const initialAmount = req.amount;
+
+        await model.initialize(req);
+
+        expect(StateMachine.__instance.state).toBe('start');
+
+        // start the model running
+        let resultPromise = model.run();
+
+        // now we started the model running we simulate a callback with the resolved party
+        emitPartyCacheMessage(cache, payeeParty);
+
+        // wait for the model to reach a terminal state
+        let result = await resultPromise;
+
+        // check we stopped at payeeResolved state
+        expect(result.currentState).toBe('WAITING_FOR_PARTY_ACCEPTANCE');
+        expect(StateMachine.__instance.state).toBe('payeeResolved');
+
+        expect(result.amount).toEqual(initialAmount);
+
+        const transferId = result.transferId;
+
+        // load a new model from the saved state
+        model = new Model({
+            cache,
+            logger,
+            metricsClient,
+            ...config,
+        });
+
+        await model.load(transferId);
+
+        // check the model loaded to the correct state
+        expect(StateMachine.__instance.state).toBe('payeeResolved');
+
+        const resume = {
+            amount: 999,
+            acceptParty: true,
+        };
+
+        // now run the model again. this should trigger transition to quote request
+        resultPromise = model.run(resume);
+
+        // now we started the model running we simulate a callback with the quote response
+        cache.publish(`qt_${model.data.quoteId}`, JSON.stringify(quoteResponse));
+
+        // wait for the model to reach a terminal state
+        result = await resultPromise;
+
+        // check we stopped at quoteReceived state
+        expect(result.currentState).toBe('WAITING_FOR_QUOTE_ACCEPTANCE');
+        expect(StateMachine.__instance.state).toBe('quoteReceived');
+
+        // check the accept party key got merged to the state
+        expect(result.acceptParty).toEqual(true);
+
+        // check the amount key got changed
+        expect(result.amount).toEqual(resume.amount);
+
+        // check the quote request amount is the NEW amount, not the initial amount
+        expect(result.quoteRequest.body.amount.amount).toStrictEqual(resume.amount);
+        expect(result.quoteRequest.body.amount.amount).not.toEqual(initialAmount);
+    });
+
+    test('Does not merge resume data keys into state that are not permitted', async () => {
+        config.autoAcceptParty = false;
+        config.autoAcceptQuotes = false;
+
+        let model = new Model({
+            cache,
+            logger,
+            metricsClient,
+            ...config,
+        });
+
+        const req = JSON.parse(JSON.stringify(transferRequest));
+
+        // record the initial requested transfer amount
+        const initialAmount = req.amount;
+
+        await model.initialize(req);
+
+        expect(StateMachine.__instance.state).toBe('start');
+
+        // start the model running
+        let resultPromise = model.run();
+
+        // now we started the model running we simulate a callback with the resolved party
+        emitPartyCacheMessage(cache, payeeParty);
+
+        // wait for the model to reach a terminal state
+        let result = await resultPromise;
+
+        // check we stopped at payeeResolved state
+        expect(result.currentState).toBe('WAITING_FOR_PARTY_ACCEPTANCE');
+        expect(StateMachine.__instance.state).toBe('payeeResolved');
+
+        expect(result.amount).toEqual(initialAmount);
+
+        const transferId = result.transferId;
+
+        // load a new model from the saved state
+        model = new Model({
+            cache,
+            logger,
+            metricsClient,
+            ...config,
+        });
+
+        await model.load(transferId);
+
+        // check the model loaded to the correct state
+        expect(StateMachine.__instance.state).toBe('payeeResolved');
+
+        const resume = {
+            amount: 999,
+            acceptParty: true,
+            someRandomKey: 'this key name is not permitted',
+        };
+
+        // now run the model again. this should trigger transition to quote request
+        resultPromise = model.run(resume);
+
+        // now we started the model running we simulate a callback with the quote response
+        cache.publish(`qt_${model.data.quoteId}`, JSON.stringify(quoteResponse));
+
+        // wait for the model to reach a terminal state
+        result = await resultPromise;
+
+        // check we stopped at quoteReceived state
+        expect(result.currentState).toBe('WAITING_FOR_QUOTE_ACCEPTANCE');
+        expect(StateMachine.__instance.state).toBe('quoteReceived');
+
+        // check the accept party key got merged to the state
+        expect(result.acceptParty).toEqual(true);
+
+        // check the amount key got changed
+        expect(result.amount).toEqual(resume.amount);
+
+        // check the quote request amount is the NEW amount, not the initial amount
+        expect(result.quoteRequest.body.amount.amount).toStrictEqual(resume.amount);
+        expect(result.quoteRequest.body.amount.amount).not.toEqual(initialAmount);
+
+        // check that our disallowed key is not merged to the transfer state
+        expect(result.someRandomKey).toBeUndefined();
     });
 
     test('skips resolving party when to.fspid is specified and skipPartyLookup is truthy', async () => {
@@ -712,7 +900,7 @@ describe('outboundModel', () => {
         expect(StateMachine.__instance.state).toBe('payeeResolved');
 
         // now run the model again. this should trigger transition to quote request
-        resultPromise = model.run({ resume: { acceptParty: true } });
+        resultPromise = model.run({ acceptParty: true });
 
         // now we started the model running we simulate a callback with the quote response
         cache.publish(`qt_${model.data.quoteId}`, JSON.stringify(quoteResponse));
@@ -725,7 +913,7 @@ describe('outboundModel', () => {
         expect(StateMachine.__instance.state).toBe('quoteReceived');
 
         // now run the model again. this should trigger abort as the quote was not accepted
-        result = await model.run({ resume: { acceptQuote: false } });
+        result = await model.run({ acceptQuote: false });
 
         expect(result.currentState).toBe('ABORTED');
         expect(result.abortedReason).toBe('Quote rejected by backend');
@@ -776,7 +964,7 @@ describe('outboundModel', () => {
         expect(StateMachine.__instance.state).toBe('payeeResolved');
 
         // now run the model again. this should trigger transition to quote request
-        resultPromise = model.run();
+        resultPromise = model.run({ acceptParty: true });
 
         // now we started the model running we simulate a callback with the quote response
         cache.publish(`qt_${model.data.quoteId}`, JSON.stringify(quoteResponse));
@@ -802,7 +990,7 @@ describe('outboundModel', () => {
         expect(StateMachine.__instance.state).toBe('quoteReceived');
 
         // now run the model again. this should trigger transition to quote request
-        resultPromise = model.run();
+        resultPromise = model.run({ acceptQuote: true });
 
         // now we started the model running we simulate a callback with the transfer fulfilment
         cache.publish(`tf_${model.data.transferId}`, JSON.stringify(transferFulfil));
