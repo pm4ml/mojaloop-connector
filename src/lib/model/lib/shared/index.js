@@ -54,8 +54,7 @@ const internalPartyToMojaloopParty = (internal, fspId) => {
         party.merchantClassificationCode = internal.merchantClassificationCode;
     }
 
-    const result = object_strip_undefined_keys(party);
-    return result;
+    return object_strip_undefined_keys(party);
 };
 
 
