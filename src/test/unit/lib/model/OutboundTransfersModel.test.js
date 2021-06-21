@@ -754,7 +754,7 @@ describe('outboundModel', () => {
         const resume = {
             acceptParty: true,
             to: newPayeeInternal,
-         };
+        };
 
         // now run the model again. this should trigger transition to quote request
         resultPromise = model.run(resume);

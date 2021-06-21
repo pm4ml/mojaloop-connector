@@ -56,7 +56,7 @@ const internalPartyToMojaloopParty = (internal, fspId) => {
 
     const result = object_strip_undefined_keys(party);
     return result;
-}
+};
 
 
 /**
