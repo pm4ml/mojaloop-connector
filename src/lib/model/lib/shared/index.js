@@ -20,12 +20,12 @@ const object_strip_undefined_keys = (o) =>
  */
 const internalPartyToMojaloopParty = (internal, fspId) => {
     const party = {
-        partyIdInfo: {
+        partyIdInfo: object_strip_undefined_keys({
             partyIdType: internal.idType,
             partyIdentifier: internal.idValue,
             partySubIdOrType: internal.idSubValue,
             fspId: fspId
-        }
+        })
     };
     if (internal.extensionList) {
         party.partyIdInfo.extensionList = {
@@ -54,8 +54,9 @@ const internalPartyToMojaloopParty = (internal, fspId) => {
         party.merchantClassificationCode = internal.merchantClassificationCode;
     }
 
-    return party;
-};
+    const result = object_strip_undefined_keys(party);
+    return result;
+}
 
 
 /**

@@ -687,6 +687,98 @@ describe('outboundModel', () => {
         expect(result.quoteRequest.body.amount.amount).not.toEqual(initialAmount);
     });
 
+    test('Allows change of payee party at accept party phase (round-robin support)', async () => {
+        config.autoAcceptParty = false;
+        config.autoAcceptQuotes = false;
+
+        let model = new Model({
+            cache,
+            logger,
+            metricsClient,
+            ...config,
+        });
+
+        const req = JSON.parse(JSON.stringify(transferRequest));
+
+        // record the initial requested transfer amount
+        const initialAmount = req.amount;
+
+        await model.initialize(req);
+
+        expect(StateMachine.__instance.state).toBe('start');
+
+        // start the model running
+        let resultPromise = model.run();
+
+        // now we started the model running we simulate a callback with the resolved party
+        emitPartyCacheMessage(cache, payeeParty);
+
+        // wait for the model to reach a terminal state
+        let result = await resultPromise;
+
+        // check we stopped at payeeResolved state
+        expect(result.currentState).toBe('WAITING_FOR_PARTY_ACCEPTANCE');
+        expect(StateMachine.__instance.state).toBe('payeeResolved');
+
+        expect(result.amount).toEqual(initialAmount);
+
+        const transferId = result.transferId;
+
+        // load a new model from the saved state
+        model = new Model({
+            cache,
+            logger,
+            metricsClient,
+            ...config,
+        });
+
+        await model.load(transferId);
+
+        // check the model loaded to the correct state
+        expect(StateMachine.__instance.state).toBe('payeeResolved');
+
+        const newPayee = {
+            partyIdInfo: {
+                partyIdType: 'PASSPORT',
+                partyIdentifier: 'AAABBBCCCDDDEEE',
+                fspId: 'TESTDFSP'
+            }
+        };
+
+        const newPayeeInternal = {
+            idType: newPayee.partyIdInfo.partyIdType,
+            idValue: newPayee.partyIdInfo.partyIdentifier,
+            fspId: newPayee.partyIdInfo.fspId,
+        };
+
+        const resume = {
+            acceptParty: true,
+            to: newPayeeInternal,
+         };
+
+        // now run the model again. this should trigger transition to quote request
+        resultPromise = model.run(resume);
+
+        // now we started the model running we simulate a callback with the quote response
+        cache.publish(`qt_${model.data.quoteId}`, JSON.stringify(quoteResponse));
+
+        // wait for the model to reach a terminal state
+        result = await resultPromise;
+
+        // check we stopped at quoteReceived state
+        expect(result.currentState).toBe('WAITING_FOR_QUOTE_ACCEPTANCE');
+        expect(StateMachine.__instance.state).toBe('quoteReceived');
+
+        // check the accept party key got merged to the state
+        expect(result.acceptParty).toEqual(true);
+
+        // check the "to" passed in to model resume is merged into the model state correctly
+        expect(result.to).toStrictEqual(newPayeeInternal);
+
+        // check the quote request payee party is the NEW one, not the initial one.
+        expect(result.quoteRequest.body.payee).toStrictEqual(newPayee);
+    });
+
     test('Does not merge resume data keys into state that are not permitted', async () => {
         config.autoAcceptParty = false;
         config.autoAcceptQuotes = false;

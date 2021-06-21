@@ -754,6 +754,10 @@ components:
           enum:
             - true
             - false
+        to:
+           $ref: '#/components/schemas/transferParty'
+        amount:
+          $ref: '#/components/schemas/money'
       additionalProperties:
         type: string
 
