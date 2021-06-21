@@ -982,13 +982,11 @@ class OutboundTransfersModel {
         try {
             // if we were passed a mergeData object...
             // merge it with our existing state, overwriting any existing matching root level keys
-
-
             if(mergeData) {
                 // first remove any merge keys that we do not want to allow to be changed
                 // note that we could do this in the swagger also. this is to put a responsibility
                 // on this model to defend itself.
-                const permittedMergeKeys = ['acceptParty', 'acceptQuote', 'amount'];
+                const permittedMergeKeys = ['acceptParty', 'acceptQuote', 'amount', 'to'];
                 Object.keys(mergeData).forEach(k => {
                     if(permittedMergeKeys.indexOf(k) === -1) {
                         delete mergeData[k];
