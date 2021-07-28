@@ -737,7 +737,7 @@ components:
         quote:
           $ref: '#/components/schemas/quoteResponse'
         quoteRequestExtensions:
-          $ref: '#/components/schemas/extensionListComplex'
+          $ref: '#/components/schemas/extensionList'
         from:
           $ref: '#/components/schemas/transferParty'
         to:
