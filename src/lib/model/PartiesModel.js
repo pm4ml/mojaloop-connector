@@ -209,7 +209,7 @@ function injectHandlersContext(config) {
                     jwsSign: config.jwsSign,
                     jwsSignPutParties: config.jwsSignPutParties,
                     jwsSigningKey: config.jwsSigningKey,
-                    wso2Auth: config.wso2Auth
+                    wso2: config.wso2
                 })
             }
         }
