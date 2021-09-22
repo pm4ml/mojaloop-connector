@@ -286,7 +286,7 @@ describe('inboundModel', () => {
                 logger,
                 rejectTransfersOnExpiredQuotes: true,
             });
-            cache.set(`transferModel_${TRANSFER_ID}`, {
+            cache.set(`transferModel_in_${TRANSFER_ID}`, {
                 quote: {
                     mojaloopResponse: {
                         expiration: new Date(new Date().getTime() - 1000).toISOString(),

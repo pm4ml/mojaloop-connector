@@ -942,7 +942,7 @@ class OutboundTransfersModel {
     async _save() {
         try {
             this.data.currentState = this.stateMachine.state;
-            const res = await this._cache.set(`transferModel_${this.data.transferId}`, this.data);
+            const res = await this._cache.set(`transferModel_out_${this.data.transferId}`, this.data);
             this._logger.push({ res }).log('Persisted transfer model in cache');
         }
         catch(err) {
@@ -959,7 +959,7 @@ class OutboundTransfersModel {
      */
     async load(transferId) {
         try {
-            const data = await this._cache.get(`transferModel_${transferId}`);
+            const data = await this._cache.get(`transferModel_out_${transferId}`);
             if(!data) {
                 throw new Error(`No cached data found for transferId: ${transferId}`);
             }

@@ -294,7 +294,7 @@ class InboundTransfersModel {
 
         try {
             // retrieve our quote data
-            this.data = await this._cache.get(`transferModel_${prepareRequest.transferId}`);
+            this.data = await this._cache.get(`transferModel_in_${prepareRequest.transferId}`);
             const quote = this.data.quote;
 
             if(!this.data || !quote) {
@@ -734,7 +734,7 @@ class InboundTransfersModel {
     async sendNotificationToPayee(body, transferId) {
         try {
             // load any cached state for this transfer e.g. quote request/response etc...
-            this.data = await this._cache.get(`transferModel_${transferId}`);
+            this.data = await this._cache.get(`transferModel_in_${transferId}`);
 
             // if we didnt have anything cached, start from scratch
             if(!this.data) {
@@ -794,7 +794,7 @@ class InboundTransfersModel {
      */
     async _save() {
         try {
-            const res = await this._cache.set(`transferModel_${this.data.transferId}`, this.data);
+            const res = await this._cache.set(`transferModel_in_${this.data.transferId}`, this.data);
             this._logger.push({ res }).log('Persisted transfer model in cache');
         }
         catch(err) {
