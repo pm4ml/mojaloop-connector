@@ -659,7 +659,6 @@ describe('inboundModel', () => {
     });
 
     describe('error handling:', () => {
-        const transferId = '1234';
         let cache;
 
         beforeEach(async () => {
