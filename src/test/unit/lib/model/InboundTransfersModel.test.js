@@ -657,4 +657,76 @@ describe('inboundModel', () => {
             expect(call[1]).toEqual(transferId);
         });
     });
+
+    describe('error handling:', () => {
+        let cache;
+
+        beforeEach(async () => {
+            cache = new Cache({
+                host: 'dummycachehost',
+                port: 1234,
+                logger,
+            });
+            await cache.connect();
+        });
+
+        afterEach(async () => {
+            await cache.disconnect();
+        });
+
+        test('creates mojaloop spec error body when backend returns standard error code', async () => {
+            const model = new Model({
+                ...config,
+                cache,
+                logger,
+            });
+
+            const testErr = new HTTPResponseError({
+                msg: 'Request returned non-success status code 500',
+                res: {
+                    data: {
+                        statusCode: '3200',
+                        message: 'some custom message',
+                    },
+                }
+            });
+
+            const err = await model._handleError(testErr);
+
+            expect(err).toBeDefined();
+            expect(err.errorInformation).toBeDefined();
+            expect(err.errorInformation.errorCode).toEqual('3200');
+            // error message should be the default one, not custom.
+            // it is debatibale whether this is truly correct, to overwrite
+            // and custom error message; but it is the case for now.
+            expect(err.errorInformation.errorDescription).toEqual('Generic ID not found');
+        });
+
+        test('creates custom error body when backend returns custom error code', async () => {
+            const model = new Model({
+                ...config,
+                cache,
+                logger,
+            });
+
+            const customMessage = 'some custom message';
+
+            const testErr = new HTTPResponseError({
+                msg: 'Request returned non-success status code 500',
+                res: {
+                    data: {
+                        statusCode: '3299',
+                        message: customMessage,
+                    },
+                }
+            });
+
+            const err = await model._handleError(testErr);
+
+            expect(err).toBeDefined();
+            expect(err.errorInformation).toBeDefined();
+            expect(err.errorInformation.errorCode).toEqual('3299');
+            expect(err.errorInformation.errorDescription).toEqual(customMessage);
+        });
+    });
 });
