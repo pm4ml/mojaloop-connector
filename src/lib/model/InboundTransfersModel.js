@@ -765,16 +765,30 @@ class InboundTransfersModel {
     }
 
     async _handleError(err) {
-        let mojaloopErrorCode = Errors.MojaloopApiErrorCodes.INTERNAL_SERVER_ERROR;
+        // by default use a generic server error
+        let mojaloopError = (new Errors.MojaloopFSPIOPError(err, null, null, Errors.MojaloopApiErrorCodes.INTERNAL_SERVER_ERROR)).toApiErrorObject();
 
         if(err instanceof HTTPResponseError) {
+            // this is an http response error e.g. from calling DFSP backend
             const e = err.getData();
             if(e.res && e.res.data) {
-                mojaloopErrorCode = Errors.MojaloopApiErrorCodeFromCode(`${e.res.data.statusCode}`);
+                // look for a standard mojaloop error that matches the statusCode
+                let mojaloopErrorCode = Errors.MojaloopApiErrorCodeFromCode(`${e.res.data.statusCode}`);
+                if(mojaloopErrorCode) {
+                    // use the standard mojaloop error object
+                    mojaloopError = (new Errors.MojaloopFSPIOPError(err, null, null, mojaloopErrorCode)).toApiErrorObject();
+                }
+                else {
+                    // this is a custom error, so construct a mojaloop spec body
+                    mojaloopError = {
+                        errorInformation: {
+                            errorCode: e.res.data.statusCode,
+                            errorDescription: e.res.data.message,
+                        }
+                    };
+                }
             }
         }
-
-        let mojaloopError = new Errors.MojaloopFSPIOPError(err, null, null, mojaloopErrorCode).toApiErrorObject();
 
         if(this.data) {
             //we have persisted state so update that with this error
