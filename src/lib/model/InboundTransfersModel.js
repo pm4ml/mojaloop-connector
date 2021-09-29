@@ -774,9 +774,14 @@ class InboundTransfersModel {
             if(e.res && e.res.data) {
                 // look for a standard mojaloop error that matches the statusCode
                 let mojaloopErrorCode = Errors.MojaloopApiErrorCodeFromCode(`${e.res.data.statusCode}`);
+                let errorDescription = e.res.data.message;
                 if(mojaloopErrorCode) {
                     // use the standard mojaloop error object
                     mojaloopError = (new Errors.MojaloopFSPIOPError(err, null, null, mojaloopErrorCode)).toApiErrorObject();
+                    if(errorDescription) {
+                        // if the error has a description, use that instead of the default mojaloop description
+                        mojaloopError.errorInformation.errorDescription = errorDescription;
+                    }
                 }
                 else {
                     // this is a custom error, so construct a mojaloop spec body
