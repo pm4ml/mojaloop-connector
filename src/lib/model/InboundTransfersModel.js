@@ -780,6 +780,8 @@ class InboundTransfersModel {
                     mojaloopError = (new Errors.MojaloopFSPIOPError(err, null, null, mojaloopErrorCode)).toApiErrorObject();
                     if(errorDescription) {
                         // if the error has a description, use that instead of the default mojaloop description
+                        // note that the mojaloop API spec allows any string up to 128 utf8 characters to be sent
+                        // in the errorDescription field.
                         mojaloopError.errorInformation.errorDescription = errorDescription;
                     }
                 }
