@@ -260,8 +260,8 @@ const mojaloopPrepareToInternalTransfer = (external, quote, ilp) => {
             },
             note: quote.request.note
         };
-        if (quote.internalRequest && quote.internalRequest.extensionList && quote.internalRequest.extensionList.extension) {
-            internal.quoteRequestExtensions = { ...quote.internalRequest.extensionList.extension };
+        if (quote.internalRequest && quote.internalRequest.extensionList) {
+            internal.quoteRequestExtensions = { ...quote.internalRequest.extensionList };
         }
     } else {
         internal = {
