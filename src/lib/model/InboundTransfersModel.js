@@ -345,6 +345,7 @@ class InboundTransfersModel {
             }
 
             this._logger.log(`Transfer accepted by backend returning homeTransactionId: ${response.homeTransactionId} for mojaloop transferId: ${prepareRequest.transferId}`);
+            this.data.homeTransactionId = response.homeTransactionId;
 
             // create a  mojaloop transfer fulfil response
             const mojaloopResponse = {
@@ -729,7 +730,7 @@ class InboundTransfersModel {
     }
 
     /**
-    * Forwards Switch notification for fulfiled transfer to the DFSP backend, when acting as a payee 
+    * Forwards Switch notification for fulfiled transfer to the DFSP backend, when acting as a payee
     */
     async sendNotificationToPayee(body, transferId) {
         try {

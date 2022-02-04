@@ -20,6 +20,7 @@ const mockTxnReqquestsArguments = require('./data/mockTxnRequestsArguments');
 const { MojaloopRequests, Ilp, Logger } = require('@mojaloop/sdk-standard-components');
 const { BackendRequests, HTTPResponseError } = require('@internal/requests');
 const Cache = require('@internal/cache');
+const shared = require('@internal/shared');
 
 const getTransfersBackendResponse = require('./data/getTransfersBackendResponse');
 const getTransfersMojaloopResponse = require('./data/getTransfersMojaloopResponse');
@@ -245,9 +246,9 @@ describe('inboundModel', () => {
 
         test('calls `mojaloopRequests.putAuthorizations` with the expected arguments.', async () => {
             await model.getAuthorizations('123456', mockTxnReqArgs.fspId);
-            
+
             expect(MojaloopRequests.__putAuthorizations).toHaveBeenCalledTimes(1);
-            
+
         });
 
 
@@ -405,9 +406,17 @@ describe('inboundModel', () => {
             expect(call[1].errorInformation.errorCode).toEqual('2001');
         });
 
-        // skip this test as this model no longer supports transfers without quotes
-        test.skip('pass on transfer without quote.', async () => {
-            const TRANSFER_ID = 'without_quote-transfer-id';
+        test('stores homeTransactionId in cache when received by dfsp acting as payee', async () => {
+            const TRANSFER_ID = 'transfer-id';
+            const HOME_TRANSACTION_ID = 'mockHomeTransactionId';
+            shared.mojaloopPrepareToInternalTransfer = jest.fn().mockReturnValueOnce({});
+
+            // mock response from dfsp acting as payee
+            BackendRequests.__postTransfers = jest.fn().mockReturnValueOnce(Promise.resolve({
+                homeTransactionId: HOME_TRANSACTION_ID,
+                transferId: TRANSFER_ID
+            }));
+
             const args = {
                 body: {
                     transferId: TRANSFER_ID,
@@ -424,7 +433,18 @@ describe('inboundModel', () => {
                 ...config,
                 cache,
                 logger,
-                allowTransferWithoutQuote: true,
+                checkIlp: false,
+                rejectTransfersOnExpiredQuotes: false
+            });
+
+            cache.set(`transferModel_in_${TRANSFER_ID}`, {
+                transferId: TRANSFER_ID,
+                quote: {
+                    fulfilment: 'mockFulfilment',
+                    mojaloopResponse: {
+                        condition: 'mockCondition',
+                    }
+                }
             });
 
             await model.prepareTransfer(args, mockArgs.fspId);
@@ -432,6 +452,8 @@ describe('inboundModel', () => {
             expect(MojaloopRequests.__putTransfersError).toHaveBeenCalledTimes(0);
             expect(BackendRequests.__postTransfers).toHaveBeenCalledTimes(1);
             expect(MojaloopRequests.__putTransfers).toHaveBeenCalledTimes(1);
+            expect((await cache.get(`transferModel_in_${TRANSFER_ID}`)).homeTransactionId)
+                .toEqual(HOME_TRANSACTION_ID);
         });
     });
 
@@ -601,7 +623,7 @@ describe('inboundModel', () => {
                     }
                 ]
             };
-            
+
             const model = new Model({
                 ...config,
                 cache,
@@ -622,7 +644,7 @@ describe('inboundModel', () => {
         const transferId = '1234';
         let cache;
 
-        beforeEach(async () => { 
+        beforeEach(async () => {
             cache = new Cache({
                 host: 'dummycachehost',
                 port: 1234,
