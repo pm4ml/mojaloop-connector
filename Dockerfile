@@ -1,4 +1,4 @@
-FROM node:14.9.0-alpine as builder
+FROM node:16-alpine as builder
 
 RUN apk add --no-cache git openssh python build-base
 
@@ -22,7 +22,7 @@ COPY ./src/lib/validate/package.json ./lib/validate/package.json
 COPY ./src/lib/metrics/package.json ./lib/metrics/package.json
 RUN npm ci --only=production
 
-FROM node:14.9.0-alpine
+FROM node:16-alpine
 
 ARG BUILD_DATE
 ARG VCS_URL
