@@ -1,6 +1,6 @@
 {
-  "name": "@modusintegration/mojaloop-connector",
-  "version": "14.1.2",
+  "name": "@pm4ml/mojaloop-connector",
+  "version": "14.1.3",
   "description": "An adapter for connecting to Mojaloop API enabled switches.",
   "main": "index.js",
   "scripts": {
