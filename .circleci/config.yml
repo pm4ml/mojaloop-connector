@@ -163,7 +163,7 @@ jobs:
           command: mkdir -p ./audit/results
       - run:
           name: Check for new npm vulnerabilities
-          command: cd src && npm audit --only=prod --json > ../audit/results/auditResults.json
+          command: cd src && npm audit --json > ../audit/results/auditResults.json
       - store_artifacts:
           path: ./audit/results
 
