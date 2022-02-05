@@ -1,6 +1,6 @@
 FROM node:14.9.0-alpine as builder
 
-RUN apk add --no-cache git python build-base
+RUN apk add --no-cache git openssh python build-base
 
 EXPOSE 3000
 
