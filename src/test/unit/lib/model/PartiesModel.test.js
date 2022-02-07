@@ -26,7 +26,7 @@ describe('PartiesModel', () => {
     let cacheKey;
     let data;
     let modelConfig;
-  
+
     const subId = 123;
     let handler = null;
     beforeEach(async () => {
@@ -44,7 +44,7 @@ describe('PartiesModel', () => {
                     handler = jest.fn(h);
                     return subId;
                 }),
-            
+
                 // mock publish and call stored handler
                 publish: jest.fn(async (channel, message) => await handler(channel, message, subId)),
 
@@ -54,7 +54,7 @@ describe('PartiesModel', () => {
             tls: defaultConfig.outbound.tls,
         };
         data = { the: 'mocked data' };
-        
+
         cacheKey = 'cache-key';
     });
 
@@ -63,7 +63,7 @@ describe('PartiesModel', () => {
             const model = await Model.create(data, cacheKey, modelConfig);
 
             expect(model.state).toBe('start');
-            
+
             // model's methods layout
             const methods = [
                 'run', 'getResponse',
@@ -75,7 +75,7 @@ describe('PartiesModel', () => {
     });
 
     describe('getResponse', () => {
-        
+
         it('should remap currentState', async () => {
             const model = await Model.create(data, cacheKey, modelConfig);
             const states = model.allStates();
@@ -85,12 +85,12 @@ describe('PartiesModel', () => {
                 const result = model.getResponse();
                 expect(result.currentState).toEqual(Model.mapCurrentState[state]);
             });
-            
+
         });
 
         it('should handle unexpected state', async() => {
             const model = await Model.create(data, cacheKey, modelConfig);
-            
+
             // simulate lack of state by undefined property
             delete model.context.data.currentState;
 
@@ -143,165 +143,173 @@ describe('PartiesModel', () => {
 
     describe('onRequestPartiesInformation', () => {
 
-        it('should implement happy flow', async (done) => {
-            const type = uuid();
-            const id = uuid();
-            const subIdValue = uuid();
+        it('should implement happy flow', (done) => {
+            (async () => {
+                const type = uuid();
+                const id = uuid();
+                const subIdValue = uuid();
 
-            const channel = Model.channelName(type, id, subIdValue);
-            const model = await Model.create(data, cacheKey, modelConfig);
-            const { cache } = model.context;
-            // mock workflow execution which is tested in separate case
-            model.run = jest.fn(() => Promise.resolve());
+                const channel = Model.channelName(type, id, subIdValue);
+                const model = await Model.create(data, cacheKey, modelConfig);
+                const { cache } = model.context;
+                // mock workflow execution which is tested in separate case
+                model.run = jest.fn(() => Promise.resolve());
 
-            const message = {
-                party: {
-                    Iam: 'the-body'
-                }
-            };
+                const message = {
+                    party: {
+                        Iam: 'the-body'
+                    }
+                };
 
-            // manually invoke transition handler
-            model.onRequestPartiesInformation(model.fsm, type, id, subIdValue)
-                .then(() => {
-                    // subscribe should be called only once
-                    expect(cache.subscribe).toBeCalledTimes(1);
+                // manually invoke transition handler
+                model.onRequestPartiesInformation(model.fsm, type, id, subIdValue)
+                    .then(() => {
+                        // subscribe should be called only once
+                        expect(cache.subscribe).toBeCalledTimes(1);
 
-                    // subscribe should be done to proper notificationChannel
-                    expect(cache.subscribe.mock.calls[0][0]).toEqual(channel);
+                        // subscribe should be done to proper notificationChannel
+                        expect(cache.subscribe.mock.calls[0][0]).toEqual(channel);
 
-                    // check invocation of request.getParties
-                    expect(MojaloopRequests.__getParties).toBeCalledWith(type, id, subIdValue);
+                        // check invocation of request.getParties
+                        expect(MojaloopRequests.__getParties).toBeCalledWith(type, id, subIdValue);
 
-                    // check that this.context.data is updated
-                    expect(model.context.data).toEqual({
-                        ...message,
-                        // current state will be updated by onAfterTransition which isn't called 
-                        // when manual invocation of transition handler happens
-                        currentState: 'start'   
+                        // check that this.context.data is updated
+                        expect(model.context.data).toEqual({
+                            ...message,
+                            // current state will be updated by onAfterTransition which isn't called
+                            // when manual invocation of transition handler happens
+                            currentState: 'start'
+                        });
+                        // handler should be called only once
+                        expect(handler).toBeCalledTimes(1);
+
+                        // handler should unsubscribe from notification channel
+                        expect(cache.unsubscribe).toBeCalledTimes(1);
+                        expect(cache.unsubscribe).toBeCalledWith(channel, subId);
+                        done();
                     });
-                    // handler should be called only once
-                    expect(handler).toBeCalledTimes(1);
 
-                    // handler should unsubscribe from notification channel
+                // ensure handler wasn't called before publishing the message
+                expect(handler).not.toBeCalled();
+
+                // ensure that cache.unsubscribe does not happened before fire the message
+                expect(cache.unsubscribe).not.toBeCalled();
+
+                // fire publication with given message
+                const df = deferredJob(cache, channel);
+                setImmediate(() => df.trigger(message));
+
+            })();
+        });
+
+        it('should handle timeouts', (done) => {
+            (async () => {
+                const type = uuid();
+                const id = uuid();
+                const subIdValue = uuid();
+
+                const channel = Model.channelName(type, id, subIdValue);
+                const model = await Model.create(data, cacheKey, modelConfig);
+                const { cache } = model.context;
+                // mock workflow execution which is tested in separate case
+                model.run = jest.fn(() => Promise.resolve());
+
+                const message = {
+                    party: {
+                        Iam: 'the-body'
+                    }
+                };
+
+                // manually invoke transition handler
+                model.onRequestPartiesInformation(model.fsm, type, id, subIdValue)
+                    .catch((err) => {
+                        // subscribe should be called only once
+                        expect(err instanceof pt.TimeoutError).toBeTruthy();
+
+                        // subscribe should be done to proper notificationChannel
+                        expect(cache.subscribe.mock.calls[0][0]).toEqual(channel);
+
+                        // check invocation of request.getParties
+                        expect(MojaloopRequests.__getParties).toBeCalledWith(type, id, subIdValue);
+
+                        // handler should be called only once
+                        expect(handler).toBeCalledTimes(0);
+
+                        // handler should unsubscribe from notification channel
+                        expect(cache.unsubscribe).toBeCalledTimes(1);
+                        expect(cache.unsubscribe).toBeCalledWith(channel, subId);
+                        done();
+                    });
+
+                // ensure handler wasn't called before publishing the message
+                expect(handler).not.toBeCalled();
+
+                // ensure that cache.unsubscribe does not happened before fire the message
+                expect(cache.unsubscribe).not.toBeCalled();
+
+                // fire publication with given message
+                const df = deferredJob(cache, channel);
+
+                setTimeout(
+                    () => { df.trigger(message); },
+                    // ensure that publication will be far long after timeout should be auto triggered
+                    (modelConfig.requestProcessingTimeoutSeconds+1)*1000
+                );
+
+            })();
+        });
+
+        it('should unsubscribe from cache in case when error happens in workflow run', (done) => {
+            (async () => {
+                const type = uuid();
+                const id = uuid();
+                const subIdValue = uuid();
+
+                const channel = Model.channelName(type, id, subIdValue);
+                const model = await Model.create(data, cacheKey, modelConfig);
+                const { cache } = model.context;
+
+                // invoke transition handler
+                model.onRequestPartiesInformation(model.fsm, type, id, subIdValue).catch((err) => {
+                    expect(err.message).toEqual('Unexpected token u in JSON at position 0');
                     expect(cache.unsubscribe).toBeCalledTimes(1);
                     expect(cache.unsubscribe).toBeCalledWith(channel, subId);
                     done();
                 });
 
-            // ensure handler wasn't called before publishing the message
-            expect(handler).not.toBeCalled();
-
-            // ensure that cache.unsubscribe does not happened before fire the message
-            expect(cache.unsubscribe).not.toBeCalled();
-           
-            // fire publication with given message
-            const df = deferredJob(cache, channel);
-            setImmediate(() => df.trigger(message));
-
+                // fire publication to channel with invalid message
+                // should throw the exception from JSON.parse
+                const df = deferredJob(cache, channel);
+                setImmediate(() => df.trigger(undefined));
+            })();
         });
 
-        it('should handle timeouts', async (done) => {
-            const type = uuid();
-            const id = uuid();
-            const subIdValue = uuid();
-
-            const channel = Model.channelName(type, id, subIdValue);
-            const model = await Model.create(data, cacheKey, modelConfig);
-            const { cache } = model.context;
-            // mock workflow execution which is tested in separate case
-            model.run = jest.fn(() => Promise.resolve());
-
-            const message = {
-                party: {
-                    Iam: 'the-body'
-                }
-            };
-
-            // manually invoke transition handler
-            model.onRequestPartiesInformation(model.fsm, type, id, subIdValue)
-                .catch((err) => {
-                    // subscribe should be called only once
-                    expect(err instanceof pt.TimeoutError).toBeTruthy();
-
-                    // subscribe should be done to proper notificationChannel
-                    expect(cache.subscribe.mock.calls[0][0]).toEqual(channel);
-
-                    // check invocation of request.getParties
-                    expect(MojaloopRequests.__getParties).toBeCalledWith(type, id, subIdValue);
-
-                    // handler should be called only once
-                    expect(handler).toBeCalledTimes(0);
-
-                    // handler should unsubscribe from notification channel
-                    expect(cache.unsubscribe).toBeCalledTimes(1);
-                    expect(cache.unsubscribe).toBeCalledWith(channel, subId);
-                    done();
-                });
-
-            // ensure handler wasn't called before publishing the message
-            expect(handler).not.toBeCalled();
-
-            // ensure that cache.unsubscribe does not happened before fire the message
-            expect(cache.unsubscribe).not.toBeCalled();
-           
-            // fire publication with given message
-            const df = deferredJob(cache, channel);
-            
-            setTimeout(
-                () => { df.trigger(message); },
-                // ensure that publication will be far long after timeout should be auto triggered
-                (modelConfig.requestProcessingTimeoutSeconds+1)*1000
-            );
-
-        });
-
-        it('should unsubscribe from cache in case when error happens in workflow run', async (done) => {
-            const type = uuid();
-            const id = uuid();
-            const subIdValue = uuid();
-
-            const channel = Model.channelName(type, id, subIdValue);
-            const model = await Model.create(data, cacheKey, modelConfig);
-            const { cache } = model.context;
-
-            // invoke transition handler
-            model.onRequestPartiesInformation(model.fsm, type, id, subIdValue).catch((err) => {
-                expect(err.message).toEqual('Unexpected token u in JSON at position 0');
-                expect(cache.unsubscribe).toBeCalledTimes(1);
-                expect(cache.unsubscribe).toBeCalledWith(channel, subId);
-                done();
-            });
-
-            // fire publication to channel with invalid message 
-            // should throw the exception from JSON.parse
-            const df = deferredJob(cache, channel);
-            setImmediate(() => df.trigger(undefined));
-        });
-
-        it('should unsubscribe from cache in case when error happens Mojaloop requests', async (done) => {
+        it('should unsubscribe from cache in case when error happens Mojaloop requests', (done) => {
+            (async () => {
             // simulate error
-            MojaloopRequests.__getParties = jest.fn(() => Promise.reject('getParties failed'));
-            const type = uuid();
-            const id = uuid();
-            const subIdValue = uuid();
+                MojaloopRequests.__getParties = jest.fn(() => Promise.reject('getParties failed'));
+                const type = uuid();
+                const id = uuid();
+                const subIdValue = uuid();
 
-            const channel = Model.channelName(type, id, subIdValue);
-            const model = await Model.create(data, cacheKey, modelConfig);
-            const { cache } = model.context;
+                const channel = Model.channelName(type, id, subIdValue);
+                const model = await Model.create(data, cacheKey, modelConfig);
+                const { cache } = model.context;
 
-            let theError = null;
-            // invoke transition handler
-            try {
-                await model.onRequestPartiesInformation(model.fsm, type, id, subIdValue);
-                throw new Error('this point should not be reached');
-            } catch (error) {
-                theError = error;
-                expect(theError).toEqual('getParties failed');
-                // handler should unsubscribe from notification channel
-                expect(cache.unsubscribe).toBeCalledTimes(1);
-                expect(cache.unsubscribe).toBeCalledWith(channel, subId);
-                done();
-            }
+                let theError = null;
+                // invoke transition handler
+                try {
+                    await model.onRequestPartiesInformation(model.fsm, type, id, subIdValue);
+                    throw new Error('this point should not be reached');
+                } catch (error) {
+                    theError = error;
+                    expect(theError).toEqual('getParties failed');
+                    // handler should unsubscribe from notification channel
+                    expect(cache.unsubscribe).toBeCalledTimes(1);
+                    expect(cache.unsubscribe).toBeCalledWith(channel, subId);
+                    done();
+                }
+            })();
         });
 
     });
@@ -313,7 +321,7 @@ describe('PartiesModel', () => {
             const subIdValue = uuid();
 
             const model = await Model.create(data, cacheKey, modelConfig);
-            
+
             model.requestPartiesInformation = jest.fn();
             model.getResponse = jest.fn(() => Promise.resolve({the: 'response'}));
 
@@ -335,12 +343,12 @@ describe('PartiesModel', () => {
             const subIdValue = uuid();
 
             const model = await Model.create(data, cacheKey, modelConfig);
-            
+
             model.getResponse = jest.fn(() => Promise.resolve({the: 'response'}));
-            
+
             model.context.data.currentState = 'succeeded';
             const result = await model.run(type, id, subIdValue);
-            
+
             expect(result).toEqual({the: 'response'});
             expect(model.getResponse).toBeCalledTimes(1);
             expect(model.context.logger.log).toBeCalledWith('Party information retrieved successfully');
@@ -352,36 +360,38 @@ describe('PartiesModel', () => {
             const subIdValue = uuid();
 
             const model = await Model.create(data, cacheKey, modelConfig);
-            
+
             model.getResponse = jest.fn(() => Promise.resolve({the: 'response'}));
-            
+
             model.context.data.currentState = 'errored';
             const result = await model.run(type, id, subIdValue);
-            
+
             expect(result).toBeFalsy();
             expect(model.getResponse).not.toBeCalled();
             expect(model.context.logger.log).toBeCalledWith('State machine in errored state');
         });
 
-        it('handling errors', async (done) => {
-            const type = uuid();
-            const id = uuid();
-            const subIdValue = uuid();
+        it('handling errors', (done) => {
+            (async () => {
+                const type = uuid();
+                const id = uuid();
+                const subIdValue = uuid();
 
-            const model = await Model.create(data, cacheKey, modelConfig);
-            
-            model.requestPartiesInformation = jest.fn(() => { throw new Error('mocked error'); });
+                const model = await Model.create(data, cacheKey, modelConfig);
 
-            model.context.data.currentState = 'start';
-            
-            model.run(type, id, subIdValue).catch((err) => {
-                expect(model.context.data.currentState).toEqual('errored');
-                expect(err.requestPartiesInformationState).toEqual( {
-                    ...data,
-                    currentState: 'ERROR_OCCURRED',
+                model.requestPartiesInformation = jest.fn(() => { throw new Error('mocked error'); });
+
+                model.context.data.currentState = 'start';
+
+                model.run(type, id, subIdValue).catch((err) => {
+                    expect(model.context.data.currentState).toEqual('errored');
+                    expect(err.requestPartiesInformationState).toEqual( {
+                        ...data,
+                        currentState: 'ERROR_OCCURRED',
+                    });
+                    done();
                 });
-                done();
-            });
+            })();
         });
         it('should handle errors', async () => {
             const type = uuid();
@@ -389,7 +399,7 @@ describe('PartiesModel', () => {
             const subIdValue = uuid();
 
             const model = await Model.create(data, cacheKey, modelConfig);
-            
+
             model.requestPartiesInformation = jest.fn(() => {
                 const err = new Error('requestPartiesInformation failed');
                 err.requestPartiesInformationState = 'some';
@@ -397,7 +407,7 @@ describe('PartiesModel', () => {
             });
             model.error = jest.fn();
             model.context.data.currentState = 'start';
-            
+
             let theError = null;
             try {
                 await model.run(type, id, subIdValue);
@@ -415,7 +425,7 @@ describe('PartiesModel', () => {
         it('should handle input validation for id/subId params', async () => {
             const type = uuid();
             const model = await Model.create(data, cacheKey, modelConfig);
-            
+
             expect(() => model.run(type))
                 .rejects.toEqual(
                     new Error('PartiesModel.run required at least two string arguments: \'type\' and \'id\'')

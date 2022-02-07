@@ -10,8 +10,9 @@
 
 'use strict';
 
-const assert = require('assert').strict;
+const assert = require('assert/strict');
 const { hostname } = require('os');
+const _ = require('lodash');
 
 const config = require('./config');
 const EventEmitter = require('events');
@@ -111,7 +112,7 @@ class Server extends EventEmitter {
             : null;
         // We only start the control client if we're running within Mojaloop Payment Manager.
         // The control server is the Payment Manager Management API Service.
-        // We only start the client to connect to and listen to the Management API service for 
+        // We only start the client to connect to and listen to the Management API service for
         // management protocol messages e.g configuration changes, certicate updates etc.
         if (this.conf.pm4mlEnabled) {
             this.controlClient = await ControlAgent.Client.Create({
@@ -318,7 +319,7 @@ if(require.main === module) {
             });
             const updatedConfigFromMgmtAPI = await _GetUpdatedConfigFromMgmtAPI(config, logger, controlClient);
             logger.log(`updatedConfigFromMgmtAPI: ${JSON.stringify(updatedConfigFromMgmtAPI)}`);
-            config.peerJWSKeys = updatedConfigFromMgmtAPI && updatedConfigFromMgmtAPI.peerJWSKeys;
+            _.merge(config, updatedConfigFromMgmtAPI);
             controlClient.terminate();
         }
         const svr = new Server(config, logger);
