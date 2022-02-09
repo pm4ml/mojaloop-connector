@@ -366,7 +366,7 @@ class InboundTransfersModel {
                 headers: res.originalRequest.headers,
                 body: res.originalRequest.body,
             };
-            this.data.currentState = TransferStateEnum.COMPLETED;
+            this.data.currentState = this._reserveNotification ? TransferStateEnum.RESERVED : TransferStateEnum.COMPLETED;
             await this._save();
             return res;
         }

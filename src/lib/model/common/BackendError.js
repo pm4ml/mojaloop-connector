@@ -19,6 +19,7 @@ const TransferStateEnum = {
     'ERROR_OCCURRED': 'ERROR_OCCURRED',
     'COMPLETED': 'COMPLETED',
     'ABORTED': 'ABORTED',
+    'RESERVED': 'RESERVED',
 };
 
 
