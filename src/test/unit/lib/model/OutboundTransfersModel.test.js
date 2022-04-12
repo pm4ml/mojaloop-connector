@@ -1012,7 +1012,7 @@ describe('outboundModel', () => {
         expect(StateMachine.__instance.state).toBe('aborted');
     });
 
-    test('should not go into infinite recursive loop if the state is unknown', async () => {
+    test('should handle unknown state with a meaningful error message', async () => {
         config.autoAcceptParty = false;
         config.autoAcceptQuotes = false;
 
