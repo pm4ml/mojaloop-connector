@@ -1074,6 +1074,12 @@ class OutboundTransfersModel {
                     await this._save();
                     this._logger.log('State machine in aborted state');
                     return this.getResponse();
+
+                default:
+                    // The state is not handled here, throwing an error to avoid an infinite recursion of this function
+                    await this._save();
+                    this._logger.error(`State machine in unhandled(${this.data.currentState}) state`);
+                    return;
             }
 
             // now call ourslves recursively to deal with the next transition
