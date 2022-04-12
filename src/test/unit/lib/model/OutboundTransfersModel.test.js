@@ -1012,6 +1012,103 @@ describe('outboundModel', () => {
         expect(StateMachine.__instance.state).toBe('aborted');
     });
 
+    test('should handle unknown state with a meaningful error message', async () => {
+        config.autoAcceptParty = false;
+        config.autoAcceptQuotes = false;
+
+        let model = new Model({
+            cache,
+            logger,
+            metricsClient,
+            ...config,
+        });
+
+        await model.initialize(JSON.parse(JSON.stringify({ 
+            ...transferRequest,
+            currentState: 'abc'
+        })));
+
+        expect(StateMachine.__instance.state).toBe('abc');
+
+        // start the model running
+        let resultPromise = model.run();
+
+        // wait for the model to reach a terminal state
+        let result = await resultPromise;
+        expect(result).toBe(undefined);
+    });
+
+    test('should handle subsequent put transfer calls incase of aborted transfer', async () => {
+        config.autoAcceptParty = false;
+        config.autoAcceptQuotes = false;
+
+        let model = new Model({
+            cache,
+            logger,
+            metricsClient,
+            ...config,
+        });
+
+        await model.initialize(JSON.parse(JSON.stringify(transferRequest)));
+
+        expect(StateMachine.__instance.state).toBe('start');
+
+        // start the model running
+        let resultPromise = model.run();
+
+        // now we started the model running we simulate a callback with the resolved party
+        emitPartyCacheMessage(cache, payeeParty);
+
+        // wait for the model to reach a terminal state
+        let result = await resultPromise;
+
+        // check we stopped at payeeResolved state
+        expect(result.currentState).toBe('WAITING_FOR_PARTY_ACCEPTANCE');
+        expect(StateMachine.__instance.state).toBe('payeeResolved');
+
+        const transferId = result.transferId;
+
+        // load a new model from the saved state
+        model = new Model({
+            cache,
+            logger,
+            metricsClient,
+            ...config,
+        });
+
+        await model.load(transferId);
+
+        // check the model loaded to the correct state
+        expect(StateMachine.__instance.state).toBe('payeeResolved');
+
+        // now run the model again. this should trigger transition to quote request
+        resultPromise = model.run({ acceptParty: true });
+
+        // now we started the model running we simulate a callback with the quote response
+        cache.publish(`qt_${model.data.quoteId}`, JSON.stringify(quoteResponse));
+
+        // wait for the model to reach quote received
+        result = await resultPromise;
+
+        // check we stopped at payeeResolved state
+        expect(result.currentState).toBe('WAITING_FOR_QUOTE_ACCEPTANCE');
+        expect(StateMachine.__instance.state).toBe('quoteReceived');
+
+        // now run the model again. this should trigger abort as the quote was not accepted
+        result = await model.run({ acceptQuote: false });
+
+        expect(result.currentState).toBe('ABORTED');
+        expect(result.abortedReason).toBe('Quote rejected by backend');
+        expect(StateMachine.__instance.state).toBe('aborted');
+
+        // now run the model again. this should get the same result as previous one
+        result = await model.run({ acceptQuote: false });
+
+        expect(result.currentState).toBe('ABORTED');
+        expect(result.abortedReason).toBe('Quote rejected by backend');
+        expect(StateMachine.__instance.state).toBe('aborted');
+    });
+
     test('halts and resumes after parties and quotes stages when AUTO_ACCEPT_PARTY is false and AUTO_ACCEPT_QUOTES is false', async () => {
         config.autoAcceptParty = false;
         config.autoAcceptQuotes = false;
