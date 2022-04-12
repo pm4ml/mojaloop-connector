@@ -1068,6 +1068,12 @@ class OutboundTransfersModel {
                     await this._save();
                     this._logger.log('State machine in errored state');
                     return;
+
+                case 'aborted':
+                    // stopped in aborted state
+                    await this._save();
+                    this._logger.log('State machine in aborted state');
+                    return this.getResponse();
             }
 
             // now call ourslves recursively to deal with the next transition
