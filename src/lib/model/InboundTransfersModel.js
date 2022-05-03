@@ -749,6 +749,10 @@ class InboundTransfersModel {
                 // if the transfer was successful in the switch, set the overall transfer state to COMPLETED
                 this.data.currentState = TransferStateEnum.COMPLETED;
             }
+            else if(body.transferState === 'ABORTED') {
+                // if the transfer was ABORTED in the switch, set the overall transfer state to ABORTED
+                this.data.currentState = TransferStateEnum.ABORTED;
+            }            
             else {
                 // if the final notification has anything other than COMMITTED as the final state, set an error
                 // in the transfer state.
@@ -761,7 +765,7 @@ class InboundTransfersModel {
             const res = await this._backendRequests.putTransfersNotification(this.data, transferId);
             return res;
         } catch (err) {
-            this._logger.push({ err }).log('Error notifying backend of final transfer state');
+            this._logger.push({ err }).log(`Error notifying backend of final transfer state equal to: ${body.transferState}`);
         }
     }
 
