@@ -685,8 +685,8 @@ describe('inboundModel', () => {
             const notif = JSON.parse(JSON.stringify(notificationAbortedToPayee));
 
             const expectedRequest = {
-                currentState: 'ABORTED',
                 finalNotification: notif.data,
+                lastError: 'Final notification state not COMMITTED',
             };
 
             const model = new Model({
