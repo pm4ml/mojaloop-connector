@@ -756,7 +756,7 @@ class InboundTransfersModel {
             else {
                 // if the final notification has anything other than COMMITTED as the final state, set an error
                 // in the transfer state.
-                this.data.currentState == TransferStateEnum.ERROR_OCCURED;
+                this.data.currentState = TransferStateEnum.ERROR_OCCURED;
                 this.data.lastError = 'Final notification state not COMMITTED';
             }
 
