@@ -28,6 +28,7 @@ const getBulkTransfersBackendResponse = require('./data/getBulkTransfersBackendR
 const getBulkTransfersMojaloopResponse = require('./data/getBulkTransfersMojaloopResponse');
 const notificationToPayee = require('./data/notificationToPayee');
 const notificationAbortedToPayee = require('./data/notificationAbortedToPayee');
+const notificationReservedToPayee = require('./data/notificationReservedToPayee');
 
 describe('inboundModel', () => {
     let config;
