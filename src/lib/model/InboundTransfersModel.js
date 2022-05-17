@@ -350,7 +350,7 @@ class InboundTransfersModel {
             // create a  mojaloop transfer fulfil response
             const mojaloopResponse = {
                 completedTimestamp: response.completedTimestamp ? response.completedTimestamp : new Date(),
-                transferState: response.transferState ? response.transferState : this._reserveNotification ? 'RESERVED' : 'COMMITTED',
+                transferState: response.transferState ? response.transferState : this._reserveNotification ? TransferStateEnum.RESERVED : TransferStateEnum.COMPLETED,
                 fulfilment: response.fulfilment ? response.fulfilment : fulfilment,
                 ...response.extensionList && {
                     extensionList: {
@@ -366,7 +366,7 @@ class InboundTransfersModel {
                 headers: res.originalRequest.headers,
                 body: res.originalRequest.body,
             };
-            this.data.currentState = this._reserveNotification ? TransferStateEnum.RESERVED : TransferStateEnum.COMPLETED;
+            this.data.currentState = response.transferState ? response.transferState : this._reserveNotification ? TransferStateEnum.RESERVED : TransferStateEnum.COMPLETED;            
             await this._save();
             return res;
         }
