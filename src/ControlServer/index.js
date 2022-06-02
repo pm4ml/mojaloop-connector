@@ -20,7 +20,7 @@
 // and sends a message to all clients notifying them of the new application configuration.
 //
 // It expects new configuration to be supplied as an array of JSON patches. It therefore exposes
-// the current configuration to 
+// the current configuration to
 
 const assert = require('assert').strict;
 
@@ -28,6 +28,7 @@ const ws = require('ws');
 const jsonPatch = require('fast-json-patch');
 
 const randomPhrase = require('@internal/randomphrase');
+const _ = require('lodash');
 
 /**************************************************************************
  * The message protocol messages, verbs, and errors
@@ -261,6 +262,13 @@ class Server extends ws.Server {
                         case VERB.READ:
                             client.send(build.CONFIGURATION.NOTIFY(this._appConfig, msg.id));
                             break;
+                        case VERB.NOTIFY: {
+                            const dup = JSON.parse(JSON.stringify(this._appConfig)); // fast-json-patch explicitly mutates
+                            _.merge(dup, msg.data);
+                            this._logger.push({ oldConf: this._appConfig, newConf: dup }).log('Emitting new configuration');
+                            this.emit(EVENT.RECONFIGURE, dup);
+                            break;
+                        }
                         case VERB.PATCH: {
                             // TODO: validate the incoming patch? Or assume clients have used the
                             // client library?

@@ -20,12 +20,13 @@
 // and sends a message to all clients notifying them of the new application configuration.
 //
 // It expects new configuration to be supplied as an array of JSON patches. It therefore exposes
-// the current configuration to 
+// the current configuration to
 
 const assert = require('assert').strict;
 const ws = require('ws');
 const jsonPatch = require('fast-json-patch');
 const randomPhrase = require('@internal/randomphrase');
+const _ = require('lodash');
 
 
 /**************************************************************************
@@ -158,7 +159,7 @@ class Client extends ws {
         }));
     }
 
-    // Close connection 
+    // Close connection
     async stop() {
         this._logger.log('Control client shutting down...');
         this.close();
@@ -188,7 +189,13 @@ class Client extends ws {
         switch (msg.msg) {
             case MESSAGE.CONFIGURATION:
                 switch (msg.verb) {
-                    case VERB.NOTIFY:
+                    case VERB.NOTIFY: {
+                        const dup = JSON.parse(JSON.stringify(this._appConfig)); // fast-json-patch explicitly mutates
+                        _.merge(dup, msg.data);
+                        this._logger.push({ oldConf: this._appConfig, newConf: dup }).log('Emitting new configuration');
+                        this.emit(EVENT.RECONFIGURE, dup);
+                        break;
+                    }
                     case VERB.PATCH: {
                         const dup = JSON.parse(JSON.stringify(this._appConfig)); // fast-json-patch explicitly mutates
                         jsonPatch.applyPatch(dup, msg.data);
@@ -205,7 +212,7 @@ class Client extends ws {
                 this.send(build.ERROR.NOTIFY.UNSUPPORTED_MESSAGE(msg.id));
                 break;
         }
-        
+
     }
 }
 

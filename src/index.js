@@ -134,6 +134,9 @@ class Server extends EventEmitter {
     }
 
     async restart(newConf) {
+        // Current implementation is buggy, so just restart the service once config changes
+        process.exit();
+
         // Figuring out what config is necessary in each server and component is a pretty big job
         // that we'll have to save for later. For now, when the config changes, we'll restart
         // more than we might have to.
