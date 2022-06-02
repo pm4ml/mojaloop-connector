@@ -9,7 +9,7 @@ version: 2.1
 orbs:
   anchore: anchore/anchore-engine@1.6.0
   deploy-kube: mojaloop/deployment@0.1.6
-  docker: circleci/docker@1.5.0
+  docker: circleci/docker@2.1.1
 
 ##
 # defaults
@@ -432,7 +432,6 @@ workflows:
           lint-dockerfile: false
           image: $CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME
           tag: $IMAGE_TAG
-          registry: $DOCKER_REGISTRY
           docker-username: DOCKER_USER
           docker-password: DOCKER_PASSWORD
 #          after_build:
