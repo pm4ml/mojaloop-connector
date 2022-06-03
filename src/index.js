@@ -122,6 +122,7 @@ class Server extends EventEmitter {
                 appConfig: this.conf,
             });
             this.controlClient.on(ControlAgent.EVENT.RECONFIGURE, this.restart.bind(this));
+            this.controlClient.on('close', this.restart.bind(this));
         }
 
         await Promise.all([
