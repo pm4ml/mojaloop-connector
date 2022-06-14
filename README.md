@@ -5,6 +5,9 @@
 [![CircleCI](https://circleci.com/gh/pm4ml/sdk-scheme-adapter.svg?style=svg)](https://circleci.com/gh/pm4ml/sdk-scheme-adapter)
 
 # Mojaloop Connector
+**⚠ WARNING: no-longer in use.**
+
+This repository is no-longer in use and exists here for reference only as this forks changes have been remerged back into the [Mojaloop SDK Scheme Adapter](https://github.com/mojaloop/sdk-scheme-adapter).
 
 This is a fork of the Mojaloop SDK scheme adapter to support additional features e.g.
 - live reconfiguration (e.g. from MCM client)
