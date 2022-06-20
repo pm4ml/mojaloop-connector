@@ -18,33 +18,19 @@ const fs = require('fs');
 const path = require('path');
 const EventEmitter = require('events');
 
-const { WSO2Auth } = require('@mojaloop/sdk-standard-components');
-
-const check = require('@internal/check');
 const Validate = require('@internal/validate');
 const router = require('@internal/router');
 const handlers = require('./handlers');
 const middlewares = require('./middlewares');
 
 class InboundApi extends EventEmitter {
-    constructor(conf, logger, cache, validator) {
+    constructor(conf, logger, cache, validator, wso2) {
         super({ captureExceptions: true });
         this._conf = conf;
         this._cache = cache;
-        this._wso2 = {
-            auth: new WSO2Auth({
-                ...conf.wso2.auth,
-                logger,
-                tlsCreds: conf.outbound.tls.mutualTLS.enabled && conf.outbound.tls.creds,
-            }),
-            retryWso2AuthFailureTimes: conf.wso2.requestAuthFailureRetryTimes,
-        };
-        this._wso2.auth.on('error', (msg) => {
-            this.emit('error', 'WSO2 auth error in InboundApi', msg);
-        });
 
         if (conf.validateInboundJws) {
-            this._jwsVerificationKeys = conf.pm4mlEnabled ? conf.peerJWSKeys :  InboundApi._GetJwsKeys(conf.jwsVerificationKeysDirectory);
+            this._jwsVerificationKeys = conf.pm4mlEnabled ? conf.peerJWSKeys : InboundApi._GetJwsKeys(conf.jwsVerificationKeysDirectory);
         }
         this._api = InboundApi._SetupApi({
             conf,
@@ -52,19 +38,15 @@ class InboundApi extends EventEmitter {
             validator,
             cache,
             jwsVerificationKeys: this._jwsVerificationKeys,
-            wso2: this._wso2,
+            wso2,
         });
     }
 
     async start() {
         this._startJwsWatcher();
-        if (!this._conf.testingDisableWSO2AuthStart) {
-            await this._wso2.auth.start();
-        }
     }
 
     stop() {
-        this._wso2.auth.stop();
         if (this._keyWatcher) {
             this._keyWatcher.close();
             this._keyWatcher = null;
@@ -120,7 +102,7 @@ class InboundApi extends EventEmitter {
         api.use(middlewares.assignFspiopIdentifier());
         if (conf.enableTestFeatures) {
             api.use(middlewares.cacheRequest(cache));
-            
+
         }
         api.use(router(handlers));
         api.use(middlewares.createResponseBodyHandler());
@@ -146,7 +128,7 @@ class InboundApi extends EventEmitter {
 }
 
 class InboundServer extends EventEmitter {
-    constructor(conf, logger, cache) {
+    constructor(conf, logger, cache, wso2) {
         super({ captureExceptions: true });
         this._conf = conf;
         this._validator = new Validate();
@@ -155,7 +137,8 @@ class InboundServer extends EventEmitter {
             conf,
             this._logger.push({ component: 'api' }),
             cache,
-            this._validator
+            this._validator,
+            wso2,
         );
         this._api.on('error', (...args) => {
             this.emit('error', ...args);
@@ -178,47 +161,11 @@ class InboundServer extends EventEmitter {
     }
 
     async stop() {
-        if (this._server) {
+        if (this._server.listening) {
             await new Promise(resolve => this._server.close(resolve));
-            this._server = null;
         }
-        if (this._api) {
-            await this._api.stop();
-            this._api = null;
-        }
+        await this._api.stop();
         this._logger.log('inbound shut down complete');
-    }
-
-    async reconfigure(conf, logger, cache) {
-        // It may be possible to extract the socket from an existing HTTP/HTTPS server and replace
-        // it in a new server of the other type, as Node's HTTP and HTTPS servers both eventually
-        // are subclasses of net.Server. This wasn't considered as a requirement at the time of
-        // writing.
-        assert(
-            this._conf.inbound.tls.mutualTLS.enabled === conf.inbound.tls.mutualTLS.enabled,
-            'Cannot live-restart an HTTPS server as HTTP or vice versa',
-        );
-        const newApi = new InboundApi(conf, logger, cache, this._validator);
-        await newApi.start();
-        return () => {
-            this._logger = logger;
-            this._cache = cache;
-            // TODO: .tls might be undefined, causing an.. err.. undefined dereference..
-            const tlsCredsChanged = check.notDeepEqual(
-                conf.inbound.tls.creds,
-                this._conf.inbound.tls.creds
-            );
-            if (this._conf.inbound.tls.mutualTLS.enabled && tlsCredsChanged) {
-                this._server.setSecureContext(conf.inbound.tls.creds);
-            }
-            this._server.removeAllListeners('request');
-            this._server.on('request', newApi.callback());
-            this._api.stop();
-            this._api = newApi;
-
-            this._conf = conf;
-            this._logger.log('restarted');
-        };
     }
 
     _createServer(tlsEnabled, tlsCreds, handler) {

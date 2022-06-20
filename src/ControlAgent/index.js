@@ -22,7 +22,6 @@
 // It expects new configuration to be supplied as an array of JSON patches. It therefore exposes
 // the current configuration to
 
-const assert = require('assert').strict;
 const ws = require('ws');
 const jsonPatch = require('fast-json-patch');
 const randomPhrase = require('@internal/randomphrase');
@@ -162,16 +161,8 @@ class Client extends ws {
     // Close connection
     async stop() {
         this._logger.log('Control client shutting down...');
+        this.stopped = true;
         this.close();
-    }
-
-    reconfigure({ logger = this._logger, port = 0, appConfig = this._appConfig }) {
-        assert(port === this._socket.remotePort, 'Cannot reconfigure running port');
-        return () => {
-            this._logger = logger;
-            this._appConfig = appConfig;
-            this._logger.log('restarted');
-        };
     }
 
     // Handle incoming message from the server.

@@ -8,7 +8,6 @@
  *       Yevhen Kyriukha - yevhen.kyriukha@modusbox.com                   *
  **************************************************************************/
 
-const { assert } = require('assert');
 const express = require('express');
 const bodyParser = require('body-parser');
 const OAuth2Server = require('oauth2-server');
@@ -63,17 +62,6 @@ class OAuthTestServer {
         await new Promise(resolve => this._app.close(resolve));
         this._app = null;
         this._logger.log('OAuth2 Test Server shut down complete');
-    }
-
-    async reconfigure({ port, clientKey, clientSecret, logger }) {
-        assert(port === this._port, 'Cannot reconfigure running port');
-        return () => {
-            this._port = port;
-            this._logger = logger;
-            this.stop().then(() => this.start());
-            this._api = OAuthTestServer._SetupApi({ clientKey, clientSecret });
-            this._logger.log('restarted');
-        };
     }
 
     handleResponse(req, res, response) {

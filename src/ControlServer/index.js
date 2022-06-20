@@ -22,8 +22,6 @@
 // It expects new configuration to be supplied as an array of JSON patches. It therefore exposes
 // the current configuration to
 
-const assert = require('assert').strict;
-
 const ws = require('ws');
 const jsonPatch = require('fast-json-patch');
 
@@ -216,18 +214,6 @@ class Server extends ws.Server {
     async stop() {
         await new Promise(this.close.bind(this));
         this._logger.log('Control server shutdown complete');
-    }
-
-    reconfigure({ logger = this._logger, port = 0, appConfig = this._appConfig }) {
-        assert(port === this._port, 'Cannot reconfigure running port');
-        return () => {
-            const reconfigureClientLogger =
-                ({ logger: clientLogger }) => clientLogger.configure(logger);
-            this._clientData.values(reconfigureClientLogger);
-            this._logger = logger;
-            this._appConfig = appConfig;
-            this._logger.log('restarted');
-        };
     }
 
     async notifyClientsOfCurrentConfig() {
