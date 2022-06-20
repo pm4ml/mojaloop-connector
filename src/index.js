@@ -10,7 +10,6 @@
 
 'use strict';
 
-const assert = require('assert/strict');
 const { hostname } = require('os');
 const _ = require('lodash');
 
@@ -26,14 +25,13 @@ const { MetricsServer, MetricsClient } = require('@internal/metrics');
 
 // import things we want to expose e.g. for unit tests and users who dont want to use the entire
 // scheme adapter as a service
-const InboundServerMiddleware = require('./InboundServer/middlewares.js');
-const OutboundServerMiddleware = require('./OutboundServer/middlewares.js');
-const check = require('@internal/check');
+const InboundServerMiddleware = require('./InboundServer/middlewares');
+const OutboundServerMiddleware = require('./OutboundServer/middlewares');
 const Router = require('@internal/router');
 const Validate = require('@internal/validate');
 const RandomPhrase = require('@internal/randomphrase');
 const Cache = require('@internal/cache');
-const { Logger } = require('@mojaloop/sdk-standard-components');
+const { Logger, WSO2Auth } = require('@mojaloop/sdk-standard-components');
 
 const LOG_ID = {
     INBOUND:   { app: 'mojaloop-connector-inbound-api' },
@@ -66,11 +64,24 @@ class Server extends EventEmitter {
             logger: this.logger.push(LOG_ID.METRICS)
         });
 
+        this.wso2 = {
+            auth: new WSO2Auth({
+                ...conf.wso2.auth,
+                logger,
+                tlsCreds: conf.outbound.tls.mutualTLS.enabled && conf.outbound.tls.creds,
+            }),
+            retryWso2AuthFailureTimes: conf.wso2.requestAuthFailureRetryTimes,
+        };
+        this.wso2.auth.on('error', (msg) => {
+            this.emit('error', 'WSO2 auth error in InboundApi', msg);
+        });
+
         this.inboundServer = new InboundServer(
             this.conf,
             this.logger.push(LOG_ID.INBOUND),
             this.cache,
-            this.metricsClient
+            this.metricsClient,
+            this.wso2,
         );
         this.inboundServer.on('error', (...args) => {
             this.logger.push({ args }).log('Unhandled error in Inbound Server');
@@ -81,40 +92,42 @@ class Server extends EventEmitter {
             this.conf,
             this.logger.push(LOG_ID.OUTBOUND),
             this.cache,
-            this.metricsClient
+            this.metricsClient,
+            this.wso2,
         );
         this.outboundServer.on('error', (...args) => {
             this.logger.push({ args }).log('Unhandled error in Outbound Server');
             this.emit('error', 'Unhandled error in Outbound Server');
         });
 
-        this.oauthTestServer = new OAuthTestServer({
-            clientKey: this.conf.oauthTestServer.clientKey,
-            clientSecret: this.conf.oauthTestServer.clientSecret,
-            port: this.conf.oauthTestServer.listenPort,
-            logger: this.logger.push(LOG_ID.OAUTHTEST),
-        });
+        if (this.conf.oauthTestServer.enabled) {
+            this.oauthTestServer = new OAuthTestServer({
+                clientKey: this.conf.oauthTestServer.clientKey,
+                clientSecret: this.conf.oauthTestServer.clientSecret,
+                port: this.conf.oauthTestServer.listenPort,
+                logger: this.logger.push(LOG_ID.OAUTHTEST),
+            });
+        }
 
-        this.testServer = new TestServer({
-            port: this.conf.test.port,
-            logger: this.logger.push(LOG_ID.TEST),
-            cache: this.cache,
-        });
-        this.controlClient = null;
+        if (this.conf.enableTestFeatures) {
+            this.testServer = new TestServer({
+                port: this.conf.test.port,
+                logger: this.logger.push(LOG_ID.TEST),
+                cache: this.cache,
+            });
+        }
     }
 
     async start() {
         await this.cache.connect();
+        await this.wso2.auth.start();
 
-        const startTestServer = this.conf.enableTestFeatures ? this.testServer.start() : null;
-        const startOauthTestServer = this.conf.oauthTestServer.enabled
-            ?  this.oauthTestServer.start()
-            : null;
         // We only start the control client if we're running within Mojaloop Payment Manager.
         // The control server is the Payment Manager Management API Service.
         // We only start the client to connect to and listen to the Management API service for
         // management protocol messages e.g configuration changes, certicate updates etc.
         if (this.conf.pm4mlEnabled) {
+            const RESTART_INTERVAL_MS = 10000;
             this.controlClient = await ControlAgent.Client.Create({
                 address: this.conf.control.mgmtAPIWsUrl,
                 port: this.conf.control.mgmtAPIWsPort,
@@ -122,75 +135,20 @@ class Server extends EventEmitter {
                 appConfig: this.conf,
             });
             this.controlClient.on(ControlAgent.EVENT.RECONFIGURE, this.restart.bind(this));
-            this.controlClient.on('close', this.restart.bind(this));
+            this.controlClient.on('close', () => setTimeout(() => this.restart(_.merge({}, this.conf, { control: { stopped: Date.now() } })), RESTART_INTERVAL_MS));
         }
 
         await Promise.all([
             this.inboundServer.start(),
             this.outboundServer.start(),
             this.metricsServer.start(),
-            startTestServer,
-            startOauthTestServer,
+            this.testServer?.start(),
+            this.oauthTestServer?.start(),
         ]);
     }
 
     async restart(newConf) {
-        // Current implementation is buggy, so just restart the service once config changes
-        process.exit();
-
-        // Figuring out what config is necessary in each server and component is a pretty big job
-        // that we'll have to save for later. For now, when the config changes, we'll restart
-        // more than we might have to.
-        // We'll do this by:
-        // 0. creating a new instance of the logger, if necessary
-        // 1. creating a new instance of the cache, if necessary
-        // 2. calling the async reconfigure method of each of the servers as necessary- this will
-        //    return a synchronous function that we can call to swap over the server events and
-        //    object properties to the new ones. It will:
-        //    1. remove the `request` listener for each of the HTTP servers
-        //    2. add the new appropriate `request` listener
-        //    This results in a completely synchronous listener changeover to the new config and
-        //    therefore hopefully avoids any concurrency issues arising from restarting different
-        //    servers or components concurrently.
-
-        // TODO: in the sense of being able to reason about the code, it would make some sense to
-        // turn the config items or object passed to each server into an event emitter, or pass an
-        // additional event emitter to the server constructor for the server to listen to and act
-        // on changes. Before this, however, it's probably necessary to ensure each server gets
-        // _only_ the config it needs, not the entire config object.
-        // Further: it might be possible to use Object.observe for this functionality.
-
-        // TODO: what happens if this is run concurrently? I.e. if it is called twice in rapid
-        // succession. This question probably needs to be asked of the reconfigure message on every
-        // server.
-
-        // Note that it should be possible to reconfigure ports on a running server by reassigning
-        // servers, e.g.
-        //   this.inboundServer._server = createHttpServer();
-        //   this.inboundServer._server.listen(newPort);
-        // If there are conflicts, for example if the new configuration specifies the new inbound
-        // port to be the same value as the old outbound port, this will require either
-        // 1. some juggling of HTTP servers, e.g.
-        //      const oldInboundServer = this.inboundServer._server;
-        //      this.inboundServer._server = this.outboundServer._server;
-        //    .. etc.
-        // 2. some juggling of sockets between servers, if possible
-        // 3. rearchitecting of the servers, perhaps splitting the .start() method on the servers
-        //    to an .init() and .listen() methods, with the latter optionally taking an HTTP server
-        //    as argument
-        // This _might_ introduce some confusion/complexity for existing websocket clients, but as
-        // the event handlers _should_ not be modified this shouldn't be a problem. A careful
-        // analysis of this will be necessary.
-        assert(newConf.inbound.port === this.conf.inbound.port
-            && newConf.outbound.port === this.conf.outbound.port
-            && newConf.test.port === this.conf.test.port
-            && newConf.oauthTestServer.listenPort === this.conf.oauthTestServer.listenPort
-            && newConf.control.mgmtAPIWsPort === this.conf.control.mgmtAPIWsPort,
-        'Cannot reconfigure ports on running server');
-
-        const doNothing = () => {};
-
-        const updateLogger = check.notDeepEqual(newConf.logIndent, this.conf.logIndent);
+        const updateLogger = !_.isEqual(newConf.logIndent, this.conf.logIndent);
         if (updateLogger) {
             this.logger = new Logger.Logger({
                 context: {
@@ -203,13 +161,11 @@ class Server extends EventEmitter {
         }
 
         let oldCache;
-        const updateCache = (
-            updateLogger ||
-            check.notDeepEqual(this.conf.cacheConfig, newConf.cacheConfig) ||
-            check.notDeepEqual(this.conf.enableTestFeatures, newConf.enableTestFeatures)
-        );
+        const updateCache = !_.isEqual(this.conf.cacheConfig, newConf.cacheConfig)
+          || !_.isEqual(this.conf.enableTestFeatures, newConf.enableTestFeatures);
         if (updateCache) {
             oldCache = this.cache;
+            await this.cache.disconnect();
             this.cache = new Cache({
                 ...newConf.cacheConfig,
                 logger: this.logger.push(LOG_ID.CACHE),
@@ -218,58 +174,103 @@ class Server extends EventEmitter {
             await this.cache.connect();
         }
 
-        const confChanged = !check.deepEqual(newConf, this.conf);
-        // TODO: find better naming than "restart", because that's not really what's happening.
-        const [restartInboundServer, restartOutboundServer, restartControlClient] = confChanged
-            ? await Promise.all([
-                this.inboundServer.reconfigure(newConf, this.logger.push(LOG_ID.INBOUND), this.cache),
-                this.outboundServer.reconfigure(newConf, this.logger.push(LOG_ID.OUTBOUND), this.cache, this.metricsClient),
-                this.controlClient.reconfigure({
-                    logger: this.logger.push(LOG_ID.CONTROL),
+        const updateWSO2 = !_.isEqual(this.conf.wso2, newConf.wso2)
+        || !_.isEqual(this.conf.outbound.tls, newConf.outbound.tls);
+        if (updateWSO2) {
+            this.wso2.auth.stop();
+            this.wso2.auth = new WSO2Auth({
+                ...newConf.wso2.auth,
+                logger: this.logger,
+                tlsCreds: newConf.outbound.tls.mutualTLS.enabled && newConf.outbound.tls.creds,
+            });
+            this.wso2.retryWso2AuthFailureTimes = newConf.wso2.requestAuthFailureRetryTimes;
+            this.wso2.auth.on('error', (msg) => {
+                this.emit('error', 'WSO2 auth error in InboundApi', msg);
+            });
+            await this.wso2.auth.start();
+        }
+
+        const updateInboundServer = !_.isEqual(this.conf.inbound, newConf.inbound);
+        if (updateInboundServer) {
+            await this.inboundServer.stop();
+            this.inboundServer = new InboundServer(
+                newConf,
+                this.logger.push(LOG_ID.INBOUND),
+                this.cache,
+                this.metricsClient,
+                this.wso2,
+            );
+            this.inboundServer.on('error', (...args) => {
+                this.logger.push({ args }).log('Unhandled error in Inbound Server');
+                this.emit('error', 'Unhandled error in Inbound Server');
+            });
+            await this.inboundServer.start();
+        }
+
+        const updateOutboundServer = !_.isEqual(this.conf.outbound, newConf.outbound);
+        if (updateOutboundServer) {
+            await this.outboundServer.stop();
+            this.outboundServer = new OutboundServer(
+                newConf,
+                this.logger.push(LOG_ID.OUTBOUND),
+                this.cache,
+                this.metricsClient,
+                this.wso2,
+            );
+            this.outboundServer.on('error', (...args) => {
+                this.logger.push({ args }).log('Unhandled error in Outbound Server');
+                this.emit('error', 'Unhandled error in Outbound Server');
+            });
+            await this.outboundServer.start();
+        }
+
+        const updateControlClient = !_.isEqual(this.conf.control, newConf.control);
+        if (updateControlClient) {
+            await this.controlClient?.stop();
+            if (this.conf.pm4mlEnabled) {
+                const RESTART_INTERVAL_MS = 10000;
+                this.controlClient = await ControlAgent.Client.Create({
+                    address: newConf.control.mgmtAPIWsUrl,
                     port: newConf.control.mgmtAPIWsPort,
-                    appConfig: newConf
-                }),
-            ])
-            : [doNothing, doNothing, doNothing];
+                    logger: this.logger.push(LOG_ID.CONTROL),
+                    appConfig: newConf,
+                });
+                this.controlClient.on(ControlAgent.EVENT.RECONFIGURE, this.restart.bind(this));
+                this.controlClient.on('close', () => setTimeout(() => this.restart(_.merge({}, newConf, { control: { stopped: Date.now() } })), RESTART_INTERVAL_MS));
+            }
+        }
 
-        const updateOAuthTestServer = (
-            updateLogger || check.notDeepEqual(newConf.oauthTestServer, this.conf.oauthTestServer)
-        );
-        const restartOAuthTestServer = updateOAuthTestServer
-            ? await this.oauthTestServer.reconfigure({
-                clientKey: this.conf.oauthTestServer.clientKey,
-                clientSecret: this.conf.oauthTestServer.clientSecret,
-                port: this.conf.oauthTestServer.listenPort,
-                logger: this.logger.push(LOG_ID.OAUTHTEST),
-            })
-            : doNothing;
+        const updateOAuthTestServer = !_.isEqual(newConf.oauthTestServer, this.conf.oauthTestServer);
+        if (updateOAuthTestServer) {
+            await this.oauthTestServer?.stop();
+            if (this.conf.oauthTestServer.enabled) {
+                this.oauthTestServer = new OAuthTestServer({
+                    clientKey: newConf.oauthTestServer.clientKey,
+                    clientSecret: newConf.oauthTestServer.clientSecret,
+                    port: newConf.oauthTestServer.listenPort,
+                    logger: this.logger.push(LOG_ID.OAUTHTEST),
+                });
+                await this.oauthTestServer.start();
+            }
+        }
 
-        const updateTestServer = (
-            updateLogger || updateCache || check.notDeepEqual(newConf.test.port, this.conf.test.port)
-        );
-        const restartTestServer = updateTestServer
-            ? await this.testServer.reconfigure({
-                port: newConf.test.port,
-                logger: this.logger.push(LOG_ID.TEST),
-                cache: this.cache,
-            })
-            : doNothing;
-
-        // You may not return an async restart function. Perform any required async activity in the
-        // reconfigure function and return a sync restart function. See the note at the top of this
-        // file.
-        [restartTestServer, restartOAuthTestServer, restartInboundServer, restartOutboundServer, restartControlClient]
-            .map(f => assert(Promise.resolve(f) !== f, 'Restart functions must be synchronous'));
-        restartTestServer();
-        restartOAuthTestServer();
-        restartInboundServer();
-        restartOutboundServer();
-        restartControlClient();
+        const updateTestServer = !_.isEqual(newConf.test.port, this.conf.test.port);
+        if (updateTestServer) {
+            await this.testServer?.stop();
+            if (this.conf.enableTestFeatures) {
+                this.testServer = new TestServer({
+                    port: newConf.test.port,
+                    logger: this.logger.push(LOG_ID.TEST),
+                    cache: this.cache,
+                });
+                await this.testServer.start();
+            }
+        }
 
         this.conf = newConf;
 
         await Promise.all([
-            oldCache && oldCache.disconnect(),
+            oldCache?.disconnect(),
         ]);
     }
 
@@ -277,9 +278,9 @@ class Server extends EventEmitter {
         return Promise.all([
             this.inboundServer.stop(),
             this.outboundServer.stop(),
-            this.oauthTestServer.stop(),
-            this.testServer.stop(),
-            this.controlClient.stop(),
+            this.oauthTestServer?.stop(),
+            this.testServer?.stop(),
+            this.controlClient?.stop(),
             this.metricsServer.stop(),
         ]);
     }
